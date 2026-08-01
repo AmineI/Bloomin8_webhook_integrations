@@ -8,7 +8,7 @@ from typing import Any
 from .api import Bloomin8Api
 from .ble import wake_device
 from .constants import STATE_READY_DELAY_SECONDS
-from .image import prepare_image
+from .image import FitMode, prepare_image
 from .state import DisplayStateStore, is_managed_image
 
 log = logging.getLogger(__name__)
@@ -44,6 +44,7 @@ class TemporaryImageWorkflow:
         gallery: str,
         overwrite_state: bool = False,
         dither: int | None = None,
+        fit_mode: FitMode = "cover",
     ) -> None:
         """Save the current state and display a temporary image."""
         log.info("=== Upload temporary image ===")

@@ -52,6 +52,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Optional dither algorithm : 0 for Floyd-Steinberg (often better), 1 for faster JJN (often faster).",
     )
+    show_parser.add_argument(
+        "--fit-mode",
+        dest="fit_mode",
+        choices=["cover", "fit", "stretch"],
+        default="cover",
+        help="How to resize the image: cover (default), fit (letterbox), or stretch.",
+    )
 
     restore_parser = commands.add_parser(
         "restore",
@@ -151,6 +158,7 @@ async def run_from_args(args: argparse.Namespace) -> None:
                 args.gallery,
                 dither=args.dither,
                 overwrite_state=args.overwrite_state,
+                fit_mode=args.fit_mode,
             )
         else:
             await workflow.restore(overwrite_state=args.overwrite_state)
