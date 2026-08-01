@@ -59,6 +59,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_mac_argument(restore_parser)
     _add_ip_argument(restore_parser)
+    restore_parser.add_argument(
+        "--overwrite-state",
+        action="store_true",
+        default=False,
+        help=(
+            "Allow restore even when current display is outside managed galleries. "
+            "By default restore is blocked to avoid overwriting non-managed content."
+        ),
+    )
 
     sleep_parser = commands.add_parser("sleep", help="Put the frame into sleep mode")
     _add_ip_argument(sleep_parser)
@@ -144,7 +153,7 @@ async def run_from_args(args: argparse.Namespace) -> None:
                 overwrite_state=args.overwrite_state,
             )
         else:
-            await workflow.restore()
+            await workflow.restore(overwrite_state=args.overwrite_state)
 
 
 def main() -> None:

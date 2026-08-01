@@ -9,7 +9,7 @@ from .api import Bloomin8Api
 from .ble import wake_device
 from .constants import STATE_READY_DELAY_SECONDS
 from .image import prepare_image
-from .state import DisplayStateStore
+from .state import DisplayStateStore, is_managed_image
 
 log = logging.getLogger(__name__)
 
@@ -61,13 +61,20 @@ class TemporaryImageWorkflow:
             await self.api.show_image(filename, gallery, dither=dither)
             return
 
-        jpeg_data = prepare_image(image_path, int(current_state["width"]), int(current_state["height"]))
+        jpeg_data = prepare_image(image_path, int(current_state["width"]), int(current_state["height"]), fit_mode=fit_mode)
         await self.api.upload_and_show(jpeg_data, filename, gallery, dither=dither)
 
-    async def restore(self) -> None:
+    async def restore(self, overwrite_state: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
         log.info("=== Restore previous state ===")
         await self.wake_and_connect()
+        current_state = await self.api.get_device_info()
+        if not is_managed_image(current_state) and not overwrite_state :
+            raise RuntimeError(
+                "Current display is outside managed galleries. "
+                "Refusing to restore over it. Use --overwrite-state to force."
+            )
+
         saved_state = self.state_backup.load()
         await self.api.restore_display(saved_state)
         self.state_backup.delete()

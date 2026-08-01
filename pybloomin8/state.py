@@ -12,7 +12,7 @@ STATE_DIRECTORY = Path(__file__).resolve().parent.parent / "bloomin8-state"
 log = logging.getLogger(__name__)
 
 
-def is_managed_display(state: dict[str, Any]) -> bool:
+def is_managed_image(state: dict[str, Any]) -> bool:
     """Return whether the current image belongs to a managed gallery."""
     gallery = str(state.get("gallery", "")).strip("/\\").lower()
     if gallery in MANAGED_GALLERIES:
@@ -61,7 +61,7 @@ class DisplayStateStore:
         self, current_state: dict[str, Any], overwrite_state: bool
     ) -> None:
         """Backup current state if unmanaged, respecting overwrite rules."""
-        if not is_managed_display(current_state):
+        if not is_managed_image(current_state):
             # If the current image was not pushed by the script, we should try to keep it as a backup to restore.
             if self.exists and not overwrite_state:
                 raise RuntimeError(

@@ -8,6 +8,7 @@ Optionally --overwrite-state to force the image change to overwrite the previous
 
 ## Restore the image backed up as it was before using pybloomin8 show
 python -m pybloomin8 restore
+Optionally --overwrite-state to force restore even if the currently displayed image is outside managed galleries
 
 ## Put the device to sleep immediately 
 python -m pybloomin8 sleep
