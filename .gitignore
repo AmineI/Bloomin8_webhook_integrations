@@ -4,6 +4,7 @@ obj/
 publish/
 __pycache__/
 bloomin8-state/
+pybloomin8.egg-info/
 .env
 .env.*
 !.env.example
