@@ -3,8 +3,12 @@
 import argparse
 import asyncio
 import logging
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+from .api import Bloomin8Api
 from .constants import MANAGED_GALLERIES
 from .workflow import TemporaryImageWorkflow
 
@@ -17,7 +21,8 @@ def build_parser() -> argparse.ArgumentParser:
     commands = parser.add_subparsers(dest="command", required=True)
 
     show_parser = commands.add_parser("show", help="Display an image after saving the current one")
-    _add_frame_arguments(show_parser)
+    _add_mac_argument(show_parser)
+    _add_ip_argument(show_parser)
     show_parser.add_argument("--image", required=True, type=Path, help="Image path")
     show_parser.add_argument(
         "--folder",
@@ -43,17 +48,50 @@ def build_parser() -> argparse.ArgumentParser:
         "restore",
         help="Restore the previous image displayed before the last set of show commands",
     )
-    _add_frame_arguments(restore_parser)
+    _add_mac_argument(restore_parser)
+    _add_ip_argument(restore_parser)
+
+    sleep_parser = commands.add_parser("sleep", help="Put the frame into sleep mode")
+    _add_ip_argument(sleep_parser)
     return parser
 
 
-def _add_frame_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--mac", required=True, help="BLE MAC address")
-    parser.add_argument("--ip", required=True, help="Device LAN IP")
+
+def _add_mac_argument(parser: argparse.ArgumentParser) -> None:
+    env_mac = _env_value("BLOOMIN8_MAC", "MAC")
+    parser.add_argument(
+        "--mac",
+        default=env_mac,
+        required=env_mac is None,
+        help="BLE MAC address (or set BLOOMIN8_MAC in .env)",
+    )
+
+
+def _add_ip_argument(parser: argparse.ArgumentParser) -> None:
+    env_ip = _env_value("BLOOMIN8_IP", "IP")
+    parser.add_argument(
+        "--ip",
+        default=env_ip,
+        required=env_ip is None,
+        help="Device LAN IP (or set BLOOMIN8_IP in .env)",
+    )
+
+
+def _env_value(*keys: str) -> str | None:
+    for key in keys:
+        value = os.getenv(key)
+        if value:
+            return value
+    return None
 
 
 async def run_from_args(args: argparse.Namespace) -> None:
     """Run the workflow represented by parsed CLI arguments."""
+    if args.command == "sleep":
+        async with Bloomin8Api(args.ip) as api:
+            await api.sleep()
+        return
+
     async with TemporaryImageWorkflow(args.mac, args.ip) as workflow:
         if args.command == "show":
             await workflow.replace_image(
@@ -68,6 +106,7 @@ async def run_from_args(args: argparse.Namespace) -> None:
 
 def main() -> None:
     """Parse arguments and run the temporary-image workflow."""
+    load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
 
