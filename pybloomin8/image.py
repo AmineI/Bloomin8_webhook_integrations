@@ -14,7 +14,7 @@ def prepare_image(path: Path, width: int, height: int) -> bytes:
     with Image.open(path) as source:
         image = source.convert("RGB")
         # TODO : Is this really needed ? Should we offer crop, cover, or this kind of stuff ?
-        #image = image.resize((width, height), Image.Resampling.LANCZOS)
+        image = image.resize((width, height), Image.Resampling.LANCZOS)
 
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=90, progressive=False)
