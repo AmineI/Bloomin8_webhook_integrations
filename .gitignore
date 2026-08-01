@@ -1,0 +1,9 @@
+.vs/
+bin/
+obj/
+publish/
+__pycache__/
+bloomin8-state/
+.env
+.env.*
+!.env.example
