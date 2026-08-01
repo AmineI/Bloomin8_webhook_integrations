@@ -5,7 +5,8 @@ import json
 import os
 from urllib.parse import quote
 
-import pybloomin8.cli
+import httpx
+import pybloomin8
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
@@ -19,9 +20,12 @@ PLEX_TOKEN = os.getenv("PLEX_TOKEN","")
 REQUIRE_OWNER_PLAYBACK = _env_flag("PROCESS_OWNER_PLAYBACK_ONLY","true")
 REQUIRE_LOCAL_PLAYER = _env_flag("PROCESS_LOCAL_PLAYBACK_ONLY","true")
 STOP_DEBOUNCE_SECONDS = int(os.getenv("STOP_DEBOUNCE_SECONDS", "25"))
+POSTER_DOWNLOAD_TIMEOUT_SECONDS = 20.0
+POSTER_MAX_BYTES = 16 * 1024 * 1024
+BLOOMIN8_SHOW_POSTER_GALLERY = "shows"
 
-# Parsed once at load so a missing frame address fails at startup rather than mid-restore.
-RESTORE_ARGS = pybloomin8.cli.build_parser().parse_args(["restore"])
+# TODO : Resolve once at load so an invalid frame configuration fails at startup, not mid-webhook.
+# pybloomin8.get_settings()
 
 # The debounced restore is held in a module global so it survives the webhook response.
 _pending_restore: asyncio.Task | None = None
@@ -54,16 +58,32 @@ async def _restore_later() -> None:
 
     logging.info("Stop confirmed. Restoring frame state.")
     try:
-        await pybloomin8.cli.run_from_args(RESTORE_ARGS)
+        await pybloomin8.restore()
         logging.info("Restore completed.")
     except Exception:
         logging.exception("Restore failed.")
 
 
-async def show_poster(poster_url: str, poster_id: str | None) -> None:
+async def download_poster(poster_url: str) -> bytes:
+    """Fetch the poster into memory, refusing responses larger than POSTER_MAX_BYTES."""
+    async with httpx.AsyncClient(timeout=POSTER_DOWNLOAD_TIMEOUT_SECONDS) as client:
+        async with client.stream("GET", poster_url) as response:
+            response.raise_for_status()
+
+            chunks = bytearray()
+            async for chunk in response.aiter_bytes():
+                chunks += chunk
+                if len(chunks) > POSTER_MAX_BYTES:
+                    raise ValueError(f"Poster exceeds {POSTER_MAX_BYTES} bytes.")
+
+    return bytes(chunks)
+
+
+async def temp_show_poster(poster_url: str, poster_id: str) -> None:
     logging.info("Displaying poster %s: %s", poster_id, poster_url)
     try:
-        # TODO SHOW - await pybloomin8.cli.run_from_args(...) here.
+        poster_data = await download_poster(poster_url)
+        await pybloomin8.temp_show_image_from_bytes(poster_data, poster_id, gallery=BLOOMIN8_SHOW_POSTER_GALLERY)
         logging.info("Display completed.")
     except Exception:
         # A frame failure is not the sender's problem, so it is logged rather than raised.
@@ -167,12 +187,12 @@ async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
             poster_plex_partial_path, poster_item_id = extract_movie_poster(metadata)
 
         poster_full_url = build_thumb_url(poster_plex_partial_path)
-        if not poster_full_url:
+        if not poster_full_url or not poster_item_id:
             logging.info("No poster resolved for media type '%s'; frame left unchanged.", media_type)
             return func.HttpResponse("OK", status_code=200)
 
         logging.info("Poster: name=%s url=%s", poster_item_id, poster_full_url)
         cancel_pending_restore()
-        await show_poster(poster_full_url, poster_item_id)
+        await temp_show_poster(poster_full_url, poster_item_id)
         return func.HttpResponse("OK", status_code=200)
 
