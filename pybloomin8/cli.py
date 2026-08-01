@@ -25,9 +25,11 @@ def build_parser() -> argparse.ArgumentParser:
     _add_ip_argument(show_parser)
     show_parser.add_argument("--image", required=True, type=Path, help="Image path")
     show_parser.add_argument(
+        "--gallery",
         "--folder",
+        dest="gallery",
         required=True,
-        help="Persistent destination folder on the frame",
+        help="Persistent destination gallery on the frame",
     )
     show_parser.add_argument(
         "--managed-galleries",
@@ -120,7 +122,7 @@ async def run_from_args(args: argparse.Namespace) -> None:
         if args.command == "show":
             await workflow.replace_image(
                 args.image,
-                args.folder,
+                args.gallery,
                 dither=args.dither,
                 overwrite_state=args.overwrite_state,
             )
@@ -143,9 +145,9 @@ def main() -> None:
                 "Use --managed-galleries with comma-separated values or set BLOOMIN8_MANAGED_GALLERIES."
             )
 
-        if args.folder not in managed_galleries:
+        if args.gallery not in managed_galleries:
             parser.error(
-                f"Unsupported folder '{args.folder}'. "
+                f"Unsupported gallery '{args.gallery}'. "
                 f"Allowed values: {', '.join(managed_galleries)}"
             )
 
