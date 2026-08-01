@@ -26,19 +26,11 @@ def build_parser() -> argparse.ArgumentParser:
     show_parser.add_argument("--image", required=True, type=Path, help="Image path")
     show_parser.add_argument(
         "--gallery",
-        "--folder",
         dest="gallery",
         required=True,
         help="Persistent destination gallery on the frame",
     )
-    show_parser.add_argument(
-        "--managed-galleries",
-        default=None,
-        help=(
-            "Comma-separated gallery allowlist override for this command "
-            "(for example: shows,posters). Overrides BLOOMIN8_MANAGED_GALLERIES."
-        ),
-    )
+    _add_managed_galleries_argument(show_parser)
     show_parser.add_argument(
         "--overwrite-state",
         action="store_true",
@@ -57,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="fit_mode",
         choices=["cover", "fit", "stretch"],
         default="cover",
-        help="How to resize the image: cover (default), fit (letterbox), or stretch.",
+        help="How to resize the image: cover (default, frame crops the overflow), fit (center-crop to panel size), or stretch.",
     )
 
     restore_parser = commands.add_parser(
@@ -66,6 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_mac_argument(restore_parser)
     _add_ip_argument(restore_parser)
+    _add_managed_galleries_argument(restore_parser)
     restore_parser.add_argument(
         "--overwrite-state",
         action="store_true",
@@ -84,12 +77,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_mac_argument(delete_gallery_parser)
     _add_ip_argument(delete_gallery_parser)
+    _add_managed_galleries_argument(delete_gallery_parser)
     delete_gallery_parser.add_argument(
         "--gallery",
         required=True,
         help="Name of the gallery to delete",
     )
     return parser
+
+
+
+def _add_managed_galleries_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--managed-galleries",
+        default=None,
+        help=(
+            "Comma-separated gallery allowlist override for this command "
+            "(for example: shows,posters). Overrides BLOOMIN8_MANAGED_GALLERIES."
+        ),
+    )
 
 
 
@@ -121,21 +127,18 @@ def _env_value(*keys: str) -> str | None:
     return None
 
 
-def _parse_gallery_list(raw: str) -> tuple[str, ...]:
-    galleries = tuple(item.strip() for item in raw.split(",") if item.strip())
-    if not galleries:
-        raise ValueError("at least one non-empty gallery is required")
-    return galleries
-
-
 def _resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
     raw = getattr(args, "managed_galleries", None) or _env_value(
         "BLOOMIN8_MANAGED_GALLERIES",
-        "MANAGED_GALLERIES",
     )
     if not raw:
-        return tuple(MANAGED_GALLERIES)
-    return _parse_gallery_list(raw)
+        return MANAGED_GALLERIES
+
+    # Lowercased so the comparison in is_managed_image, which lowercases device values, stays reliable.
+    galleries = tuple(item.strip().lower() for item in raw.split(",") if item.strip())
+    if not galleries:
+        raise ValueError("at least one non-empty gallery is required")
+    return galleries
 
 
 async def run_from_args(args: argparse.Namespace) -> None:
@@ -145,15 +148,17 @@ async def run_from_args(args: argparse.Namespace) -> None:
             await api.sleep()
         return
 
+    managed_galleries = _resolve_managed_galleries(args)
+
     if args.command == "delete-gallery":
-        async with TemporaryImageWorkflow(args.mac, args.ip) as workflow:
+        async with TemporaryImageWorkflow(args.mac, args.ip, managed_galleries) as workflow:
             await workflow.wake_and_connect()
             await workflow.api.delete_gallery(args.gallery)
         return
 
-    async with TemporaryImageWorkflow(args.mac, args.ip) as workflow:
+    async with TemporaryImageWorkflow(args.mac, args.ip, managed_galleries) as workflow:
         if args.command == "show":
-            await workflow.replace_image(
+            await workflow.replace_image_path(
                 args.image,
                 args.gallery,
                 dither=args.dither,
@@ -179,7 +184,7 @@ def main() -> None:
                 "Use --managed-galleries with comma-separated values or set BLOOMIN8_MANAGED_GALLERIES."
             )
 
-        if args.gallery not in managed_galleries:
+        if args.gallery.lower() not in managed_galleries:
             parser.error(
                 f"Unsupported gallery '{args.gallery}'. "
                 f"Allowed values: {', '.join(managed_galleries)}"

@@ -12,22 +12,27 @@ STATE_DIRECTORY = Path(__file__).resolve().parent.parent / "bloomin8-state"
 log = logging.getLogger(__name__)
 
 
-def is_managed_image(state: dict[str, Any]) -> bool:
+def is_managed_image(
+    state: dict[str, Any], managed_galleries: tuple[str, ...] = MANAGED_GALLERIES
+) -> bool:
     """Return whether the current image belongs to a managed gallery."""
     gallery = str(state.get("gallery", "")).strip("/\\").lower()
-    if gallery in MANAGED_GALLERIES:
+    if gallery in managed_galleries:
         return True
 
     image_parts = str(state.get("image", "")).replace("\\", "/").split("/")
-    return any(part.lower() in MANAGED_GALLERIES for part in image_parts[:-1])
+    return any(part.lower() in managed_galleries for part in image_parts[:-1])
 
 
 class DisplayStateStore:
     """Persist one previous display state per frame."""
 
-    def __init__(self, frame_id: str) -> None:
+    def __init__(
+        self, frame_id: str, managed_galleries: tuple[str, ...] = MANAGED_GALLERIES
+    ) -> None:
         safe_frame_id = re.sub(r"[^a-zA-Z0-9]+", "-", frame_id).strip("-").lower()
         self.path = STATE_DIRECTORY / f"{safe_frame_id}.json"
+        self.managed_galleries = managed_galleries
 
     @property
     def exists(self) -> bool:
@@ -61,7 +66,7 @@ class DisplayStateStore:
         self, current_state: dict[str, Any], overwrite_state: bool
     ) -> None:
         """Backup current state if unmanaged, respecting overwrite rules."""
-        if not is_managed_image(current_state):
+        if not is_managed_image(current_state, self.managed_galleries):
             # If the current image was not pushed by the script, we should try to keep it as a backup to restore.
             if self.exists and not overwrite_state:
                 raise RuntimeError(

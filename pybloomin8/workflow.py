@@ -7,7 +7,7 @@ from typing import Any
 
 from .api import Bloomin8Api
 from .ble import wake_device
-from .constants import STATE_READY_DELAY_SECONDS
+from .constants import MANAGED_GALLERIES, STATE_READY_DELAY_SECONDS
 from .image import FitMode, prepare_image
 from .state import DisplayStateStore, is_managed_image
 
@@ -17,10 +17,16 @@ log = logging.getLogger(__name__)
 class TemporaryImageWorkflow:
     """Display an image while keeping the ability to restore the previous frame state."""
 
-    def __init__(self, mac_address: str, ip_address: str) -> None:
+    def __init__(
+        self,
+        mac_address: str,
+        ip_address: str,
+        managed_galleries: tuple[str, ...] = MANAGED_GALLERIES,
+    ) -> None:
         self.mac_address = mac_address
         self.api = Bloomin8Api(ip_address)
-        self.state_backup = DisplayStateStore(mac_address)
+        self.managed_galleries = managed_galleries
+        self.state_backup = DisplayStateStore(mac_address, managed_galleries)
 
     async def __aenter__(self) -> "TemporaryImageWorkflow":
         return self
@@ -38,7 +44,7 @@ class TemporaryImageWorkflow:
             await wake_device(self.mac_address)
             await self.api.wait_until_ready()
 
-    async def replace_image(
+    async def replace_image_path(
         self,
         image_path: Path,
         gallery: str,
@@ -46,7 +52,29 @@ class TemporaryImageWorkflow:
         dither: int | None = None,
         fit_mode: FitMode = "cover",
     ) -> None:
-        """Save the current state and display a temporary image."""
+        """Save the current state and display a temporary image read from disk."""
+        await self.replace_image_bytes(
+            image_path.read_bytes(),
+            gallery,
+            image_path.stem,
+            overwrite_state=overwrite_state,
+            dither=dither,
+            fit_mode=fit_mode,
+        )
+
+    async def replace_image_bytes(
+        self,
+        image_data: bytes,
+        gallery: str,
+        name: str,
+        overwrite_state: bool = False,
+        dither: int | None = None,
+        fit_mode: FitMode = "cover",
+    ) -> None:
+        """Save the current state and display a temporary image held in memory.
+
+        `name` identifies the image on the frame, so reusing it skips the re-upload.
+        """
         log.info("=== Upload temporary image ===")
         await self.wake_and_connect()
         current_state = await self.api.get_device_info()
@@ -57,20 +85,20 @@ class TemporaryImageWorkflow:
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
 
-        filename = f"{image_path.stem}_{fit_mode}.jpg"
-        if await self.api.image_exists(filename, gallery):
-            await self.api.show_image(filename, gallery, dither=dither)
+        bloomin8_filename = f"{name}_{fit_mode}.jpg"
+        if await self.api.image_exists(bloomin8_filename, gallery):
+            await self.api.show_image(bloomin8_filename, gallery, dither=dither)
             return
 
-        jpeg_data = prepare_image(image_path, int(current_state["width"]), int(current_state["height"]), fit_mode=fit_mode)
-        await self.api.upload_and_show(jpeg_data, filename, gallery, dither=dither)
+        jpeg_data = prepare_image(image_data, int(current_state["width"]), int(current_state["height"]), fit_mode=fit_mode)
+        await self.api.upload_and_show(jpeg_data, bloomin8_filename, gallery, dither=dither)
 
     async def restore(self, overwrite_state: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
         log.info("=== Restore previous state ===")
         await self.wake_and_connect()
         current_state = await self.api.get_device_info()
-        if not is_managed_image(current_state) and not overwrite_state :
+        if not is_managed_image(current_state, self.managed_galleries) and not overwrite_state :
             raise RuntimeError(
                 "Current display is outside managed galleries. "
                 "Refusing to restore over it. Use --overwrite-state to force."
