@@ -27,8 +27,15 @@ def build_parser() -> argparse.ArgumentParser:
     show_parser.add_argument(
         "--folder",
         required=True,
-        choices=MANAGED_GALLERIES,
         help="Persistent destination folder on the frame",
+    )
+    show_parser.add_argument(
+        "--managed-galleries",
+        default=None,
+        help=(
+            "Comma-separated gallery allowlist override for this command "
+            "(for example: shows,posters). Overrides BLOOMIN8_MANAGED_GALLERIES."
+        ),
     )
     show_parser.add_argument(
         "--overwrite-state",
@@ -85,6 +92,23 @@ def _env_value(*keys: str) -> str | None:
     return None
 
 
+def _parse_gallery_list(raw: str) -> tuple[str, ...]:
+    galleries = tuple(item.strip() for item in raw.split(",") if item.strip())
+    if not galleries:
+        raise ValueError("at least one non-empty gallery is required")
+    return galleries
+
+
+def _resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
+    raw = args.managed_galleries or _env_value(
+        "BLOOMIN8_MANAGED_GALLERIES",
+        "MANAGED_GALLERIES",
+    )
+    if not raw:
+        return tuple(MANAGED_GALLERIES)
+    return _parse_gallery_list(raw)
+
+
 async def run_from_args(args: argparse.Namespace) -> None:
     """Run the workflow represented by parsed CLI arguments."""
     if args.command == "sleep":
@@ -109,6 +133,21 @@ def main() -> None:
     load_dotenv()
     parser = build_parser()
     args = parser.parse_args()
+
+    if args.command == "show":
+        try:
+            managed_galleries = _resolve_managed_galleries(args)
+        except ValueError:
+            parser.error(
+                "Managed galleries override is empty. "
+                "Use --managed-galleries with comma-separated values or set BLOOMIN8_MANAGED_GALLERIES."
+            )
+
+        if args.folder not in managed_galleries:
+            parser.error(
+                f"Unsupported folder '{args.folder}'. "
+                f"Allowed values: {', '.join(managed_galleries)}"
+            )
 
     if args.command == "show" and not args.image.is_file():
         parser.error(f"Image not found: {args.image}")
