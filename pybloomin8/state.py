@@ -75,8 +75,3 @@ class DisplayStateStore:
         else:
             log.info("Current image is from to the script-managed temp image gallery, no state saved")
 
-    def load_and_delete(self) -> dict[str, Any]:
-        """Load the saved state and delete the file in one operation."""
-        state = self.load()
-        self.delete()
-        return state

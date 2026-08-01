@@ -142,21 +142,18 @@ class Bloomin8Api:
         """Restore a display state previously returned by deviceInfo."""
         play_type = int(saved_state.get("play_type", 0))
         payload: dict[str, Any] = {
+            "image": saved_state["image"],
             "play_type": saved_state["play_type"],
             "dither": saved_state["dither"],
             "saturation": saved_state["saturation"],
             "gamma": saved_state["gamma"],
+            "gallery": saved_state.get("gallery", "default"),
         }
 
         if play_type == 1:
-            payload["gallery"] = saved_state.get("gallery", "default")
             payload["duration"] = saved_state.get("play_duration", 300)
-            if saved_state.get("image"):
-                payload["image"] = saved_state["image"]
         elif play_type == 2:
             payload["playlist"] = saved_state.get("playlist", "")
-        elif saved_state.get("image"):
-            payload["image"] = saved_state["image"]
 
         await self.wait_until_ready()
         response = await self._client.post("/show", json=payload, timeout=HTTP_REQUEST_TIMEOUT_SECONDS)

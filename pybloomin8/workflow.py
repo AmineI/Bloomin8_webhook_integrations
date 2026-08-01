@@ -52,6 +52,7 @@ class TemporaryImageWorkflow:
         self.state_backup.backup_current_state(current_state, overwrite_state)
 
         log.info("  Current image : %s", current_state.get("image"))
+        log.info("  Current gallery : %s", current_state.get("gallery"))
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
 
@@ -67,6 +68,7 @@ class TemporaryImageWorkflow:
         """Restore the previously saved display state and remove temporary data."""
         log.info("=== Restore previous state ===")
         await self.wake_and_connect()
-        saved_state = self.state_backup.load_and_delete()
+        saved_state = self.state_backup.load()
         await self.api.restore_display(saved_state)
+        self.state_backup.delete()
         log.info("=== Previous display restored ===")
