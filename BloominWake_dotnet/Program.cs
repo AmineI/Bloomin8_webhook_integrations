@@ -4,7 +4,7 @@ using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Storage.Streams;
 
-namespace BleWake;
+namespace BloominWake;
 
 internal static class Program
 {
@@ -18,8 +18,8 @@ internal static class Program
     {
         if (args.Length < 1)
         {
-            Console.Error.WriteLine("Usage: BleWake <MAC address>");
-            Console.Error.WriteLine("  e.g. BleWake AA:BB:CC:DD:EE:FF");
+            Console.Error.WriteLine("Usage: BloominWake <MAC address>");
+            Console.Error.WriteLine("  e.g. BloominWake AA:BB:CC:DD:EE:FF");
             return 1;
         }
 
