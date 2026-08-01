@@ -31,8 +31,12 @@ class TemporaryImageWorkflow:
     async def wake_and_connect(self) -> None:
         """Wake the frame over BLE and allow Wi-Fi startup to begin."""
         await wake_device(self.mac_address)
-        await asyncio.sleep(STATE_READY_DELAY_SECONDS)
-        await self.api.wait_until_ready()
+        try:
+            await self.api.wait_until_ready()
+        except RuntimeError:
+            log.warning("Device did not respond after first BLE wake — retrying wake signal")
+            await wake_device(self.mac_address)
+            await self.api.wait_until_ready()
 
     async def replace_image(
         self,
