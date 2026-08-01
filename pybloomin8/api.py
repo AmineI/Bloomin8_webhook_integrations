@@ -164,6 +164,16 @@ class Bloomin8Api:
 
         log.info("[Bloomin8 API] Restored backed up display status")
 
+    async def delete_gallery(self, name: str) -> None:
+        """Delete an entire gallery and all images contained within it."""
+        response = await self._client.delete(
+            "/gallery",
+            params={"name": name},
+            timeout=HTTP_REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        log.info("[Bloomin8 API] Gallery '%s' deleted", name)
+
     async def sleep(self) -> None:
         """Put the frame into sleep mode."""
         await self.wait_until_ready()

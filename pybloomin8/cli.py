@@ -62,6 +62,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     sleep_parser = commands.add_parser("sleep", help="Put the frame into sleep mode")
     _add_ip_argument(sleep_parser)
+
+    delete_gallery_parser = commands.add_parser(
+        "delete-gallery", help="Delete a gallery and all images within it"
+    )
+    _add_mac_argument(delete_gallery_parser)
+    _add_ip_argument(delete_gallery_parser)
+    delete_gallery_parser.add_argument(
+        "--gallery",
+        required=True,
+        help="Name of the gallery to delete",
+    )
     return parser
 
 
@@ -102,7 +113,7 @@ def _parse_gallery_list(raw: str) -> tuple[str, ...]:
 
 
 def _resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
-    raw = args.managed_galleries or _env_value(
+    raw = getattr(args, "managed_galleries", None) or _env_value(
         "BLOOMIN8_MANAGED_GALLERIES",
         "MANAGED_GALLERIES",
     )
@@ -116,6 +127,12 @@ async def run_from_args(args: argparse.Namespace) -> None:
     if args.command == "sleep":
         async with Bloomin8Api(args.ip) as api:
             await api.sleep()
+        return
+
+    if args.command == "delete-gallery":
+        async with TemporaryImageWorkflow(args.mac, args.ip) as workflow:
+            await workflow.wake_and_connect()
+            await workflow.api.delete_gallery(args.gallery)
         return
 
     async with TemporaryImageWorkflow(args.mac, args.ip) as workflow:
@@ -136,7 +153,7 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command == "show":
+    if args.command in ("show", "delete-gallery"):
         try:
             managed_galleries = _resolve_managed_galleries(args)
         except ValueError:
