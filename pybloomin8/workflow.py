@@ -57,7 +57,7 @@ class TemporaryImageWorkflow:
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
 
-        filename = image_path.name
+        filename = f"{image_path.stem}_{fit_mode}.jpg"
         if await self.api.image_exists(filename, gallery):
             await self.api.show_image(filename, gallery, dither=dither)
             return
