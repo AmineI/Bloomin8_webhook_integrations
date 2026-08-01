@@ -2,3 +2,4 @@ bleak
 httpx
 Pillow
 python-dotenv
+azure-functions
