@@ -1,8 +1,11 @@
 import azure.functions as func
+import asyncio
 import logging
 import json
 import os
 from urllib.parse import quote
+
+import pybloomin8.cli
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
@@ -15,6 +18,57 @@ PLEX_SERVER_URL = os.getenv("PLEX_SERVER_URL","").strip().rstrip("/")
 PLEX_TOKEN = os.getenv("PLEX_TOKEN","")
 REQUIRE_OWNER_PLAYBACK = _env_flag("PROCESS_OWNER_PLAYBACK_ONLY","true")
 REQUIRE_LOCAL_PLAYER = _env_flag("PROCESS_LOCAL_PLAYBACK_ONLY","true")
+STOP_DEBOUNCE_SECONDS = int(os.getenv("STOP_DEBOUNCE_SECONDS", "25"))
+
+# Parsed once at load so a missing frame address fails at startup rather than mid-restore.
+RESTORE_ARGS = pybloomin8.cli.build_parser().parse_args(["restore"])
+
+# The debounced restore is held in a module global so it survives the webhook response.
+_pending_restore: asyncio.Task | None = None
+
+
+def cancel_pending_restore() -> None:
+    global _pending_restore
+
+    # cancel() returns False when the restore already ran, so this only logs real cancellations.
+    if _pending_restore is not None and _pending_restore.cancel():
+        logging.info("Pending restore cancelled by a newer event.")
+
+    _pending_restore = None
+
+
+def schedule_stop() -> None:
+    """Restore the frame after the debounce window, unless a play arrives first."""
+    global _pending_restore
+
+    cancel_pending_restore()
+    _pending_restore = asyncio.create_task(_restore_later())
+
+
+async def _restore_later() -> None:
+    global _pending_restore
+
+    await asyncio.sleep(STOP_DEBOUNCE_SECONDS)
+    # Past the window the restore is committed; a later play must not interrupt it.
+    _pending_restore = None
+
+    logging.info("Stop confirmed. Restoring frame state.")
+    try:
+        await pybloomin8.cli.run_from_args(RESTORE_ARGS)
+        logging.info("Restore completed.")
+    except Exception:
+        logging.exception("Restore failed.")
+
+
+async def show_poster(poster_url: str, poster_id: str | None) -> None:
+    logging.info("Displaying poster %s: %s", poster_id, poster_url)
+    try:
+        # TODO SHOW - await pybloomin8.cli.run_from_args(...) here.
+        logging.info("Display completed.")
+    except Exception:
+        # A frame failure is not the sender's problem, so it is logged rather than raised.
+        logging.exception("Display failed.")
+
 
 def should_skip_webhook(payload: dict) -> bool:
     # Each restriction is opt-in via its own env var, defaulting to enabled.
@@ -79,7 +133,7 @@ def extract_show_poster(metadata):
 # but it is too small to be used in our scenario.
 
 @app.route(route="http_webhook_trigger")
-def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
+async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Received Plex webhook request.")
 
     try:
@@ -98,14 +152,13 @@ def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        logging.info("Media stopped. No further processing required.")
-        # TODO RESTORE The image to the last known good state, if any
-        return func.HttpResponse("OK", status_code=200)
+        schedule_stop()
+        logging.info("Scheduling Restore in %ss.", STOP_DEBOUNCE_SECONDS)
+        return func.HttpResponse("Accepted", status_code=202)
     else:
-        logging.info("Media started. Sending image.")
-    
         metadata = payload.get("Metadata") or {}
         media_type = metadata.get("type")
+        poster_plex_partial_path = poster_item_id = None
 
         # Episode thumbs are preview frames, not posters; use the season/show art and its rating key instead.
         if media_type == "episode":
@@ -114,9 +167,12 @@ def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
             poster_plex_partial_path, poster_item_id = extract_movie_poster(metadata)
 
         poster_full_url = build_thumb_url(poster_plex_partial_path)
+        if not poster_full_url:
+            logging.info("No poster resolved for media type '%s'; frame left unchanged.", media_type)
+            return func.HttpResponse("OK", status_code=200)
 
         logging.info("Poster: name=%s url=%s", poster_item_id, poster_full_url)
-        #TODO Get the image from poster_full_url & send to the Bloomin8 device to update the image
-
-    return func.HttpResponse("OK", status_code=200)
+        cancel_pending_restore()
+        await show_poster(poster_full_url, poster_item_id)
+        return func.HttpResponse("OK", status_code=200)
 
