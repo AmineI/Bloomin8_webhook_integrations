@@ -3,13 +3,13 @@
 import argparse
 import asyncio
 import logging
-import os
 from pathlib import Path
 
 from dotenv import load_dotenv
 
 from .api import Bloomin8Api
-from .constants import MANAGED_GALLERIES
+from .image import FIT_MODES
+from .settings import env_value, parse_managed_galleries
 from .workflow import TemporaryImageWorkflow
 
 
@@ -47,7 +47,7 @@ def build_parser() -> argparse.ArgumentParser:
     show_parser.add_argument(
         "--fit-mode",
         dest="fit_mode",
-        choices=["cover", "fit", "stretch"],
+        choices=list(FIT_MODES),
         default="cover",
         help="How to resize the image: cover (default, frame crops the overflow), fit (center-crop to panel size), or stretch.",
     )
@@ -100,7 +100,7 @@ def _add_managed_galleries_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_mac_argument(parser: argparse.ArgumentParser) -> None:
-    env_mac = _env_value("BLOOMIN8_MAC", "MAC")
+    env_mac = env_value("BLOOMIN8_MAC", "MAC")
     parser.add_argument(
         "--mac",
         default=env_mac,
@@ -110,7 +110,7 @@ def _add_mac_argument(parser: argparse.ArgumentParser) -> None:
 
 
 def _add_ip_argument(parser: argparse.ArgumentParser) -> None:
-    env_ip = _env_value("BLOOMIN8_IP", "IP")
+    env_ip = env_value("BLOOMIN8_IP", "IP")
     parser.add_argument(
         "--ip",
         default=env_ip,
@@ -119,26 +119,11 @@ def _add_ip_argument(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def _env_value(*keys: str) -> str | None:
-    for key in keys:
-        value = os.getenv(key)
-        if value:
-            return value
-    return None
-
-
-def _resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
-    raw = getattr(args, "managed_galleries", None) or _env_value(
+def resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
+    managed_galleries_input = getattr(args, "managed_galleries", None) or env_value(
         "BLOOMIN8_MANAGED_GALLERIES",
     )
-    if not raw:
-        return MANAGED_GALLERIES
-
-    # Lowercased so the comparison in is_managed_image, which lowercases device values, stays reliable.
-    galleries = tuple(item.strip().lower() for item in raw.split(",") if item.strip())
-    if not galleries:
-        raise ValueError("at least one non-empty gallery is required")
-    return galleries
+    return parse_managed_galleries(managed_galleries_input)
 
 
 async def run_from_args(args: argparse.Namespace) -> None:
@@ -148,7 +133,7 @@ async def run_from_args(args: argparse.Namespace) -> None:
             await api.sleep()
         return
 
-    managed_galleries = _resolve_managed_galleries(args)
+    managed_galleries = resolve_managed_galleries(args)
 
     if args.command == "delete-gallery":
         async with TemporaryImageWorkflow(args.mac, args.ip, managed_galleries) as workflow:
@@ -177,7 +162,7 @@ def main() -> None:
 
     if args.command in ("show", "delete-gallery"):
         try:
-            managed_galleries = _resolve_managed_galleries(args)
+            managed_galleries = resolve_managed_galleries(args)
         except ValueError:
             parser.error(
                 "Managed galleries override is empty. "

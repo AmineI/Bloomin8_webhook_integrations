@@ -9,6 +9,7 @@ from PIL import Image, ImageOps
 log = logging.getLogger(__name__)
 
 FitMode = Literal["cover", "fit", "stretch"]
+FIT_MODES: tuple[FitMode, ...] = ("cover", "fit", "stretch")
 
 
 def prepare_image(
