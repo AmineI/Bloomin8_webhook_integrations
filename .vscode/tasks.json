@@ -9,7 +9,7 @@
 			"isBackground": true,
 			"dependsOn": "pip install (functions)",
 			"options": {
-				"cwd": "${workspaceFolder}/plex_webhook_functionapp"
+				"cwd": "${workspaceFolder}"
 			}
 		},
 		{
