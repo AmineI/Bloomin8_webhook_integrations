@@ -41,12 +41,19 @@ def cancel_pending_restore() -> None:
     _pending_restore = None
 
 
-def schedule_stop() -> None:
+def schedule_stop() -> asyncio.Task:
     """Restore the frame after the debounce window, unless a play arrives first."""
     global _pending_restore
 
     cancel_pending_restore()
     _pending_restore = asyncio.create_task(_restore_later())
+    return _pending_restore
+
+
+async def perform_restore(overwrite_state: bool = False) -> None:
+    logging.info("Restoring frame state (overwrite_state=%s).", overwrite_state)
+    await pybloomin8.restore(overwrite_state=overwrite_state)
+    logging.info("Restore completed.")
 
 
 async def _restore_later() -> None:
@@ -56,10 +63,9 @@ async def _restore_later() -> None:
     # Past the window the restore is committed; a later play must not interrupt it.
     _pending_restore = None
 
-    logging.info("Stop confirmed. Restoring frame state.")
+    logging.info("Media stop confirmed : debounce delay elapsed")
     try:
-        await pybloomin8.restore()
-        logging.info("Restore completed.")
+        await perform_restore()
     except Exception:
         logging.exception("Restore failed.")
 
@@ -152,7 +158,7 @@ def extract_show_poster(metadata):
 # A second part of the POST request contains a very small JPEG thumbnail,
 # but it is too small to be used in our scenario.
 
-@app.route(route="http_webhook_trigger")
+@app.route(route="plex_webhook_trigger", methods=["POST"])
 async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Received Plex webhook request.")
 
@@ -172,9 +178,17 @@ async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        schedule_stop()
-        logging.info("Scheduling Restore in %ss.", STOP_DEBOUNCE_SECONDS)
-        return func.HttpResponse("Accepted", status_code=202)
+        restore_task = schedule_stop()
+        logging.info("Holding the response for up to %ss before restoring.", STOP_DEBOUNCE_SECONDS)
+
+        # Waiting inside the invocation stops the host from tearing the worker down mid-debounce.
+        # asyncio.wait() returns instead of raising when a newer event cancels the task.
+        await asyncio.wait({restore_task})
+
+        if restore_task.cancelled():
+            return func.HttpResponse("Restore cancelled by a newer event.", status_code=200)
+
+        return func.HttpResponse("Restored", status_code=200)
     else:
         metadata = payload.get("Metadata") or {}
         media_type = metadata.get("type")
@@ -195,4 +209,23 @@ async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
         cancel_pending_restore()
         await temp_show_poster(poster_full_url, poster_item_id)
         return func.HttpResponse("OK", status_code=200)
+
+
+@app.route(route="http_restore_trigger", methods=["POST"])
+async def http_restore_trigger(req: func.HttpRequest) -> func.HttpResponse:
+    """Restore the saved frame state now, bypassing the stop debounce."""
+    # Forces the restore even when the frame shows an image the workflow did not put there.
+    overwrite_state = (req.params.get("overwrite_state") or "").strip().lower() in ("true", "1", "yes")
+    logging.info("Restore requested over HTTP (overwrite_state=%s).", overwrite_state)
+
+    # A pending debounced restore would otherwise fire later against already-restored state.
+    cancel_pending_restore()
+
+    try:
+        await perform_restore(overwrite_state)
+    except Exception as error:
+        logging.exception("Restore failed.")
+        return func.HttpResponse(f"Restore failed: {error}", status_code=500)
+
+    return func.HttpResponse("Restored", status_code=200)
 
