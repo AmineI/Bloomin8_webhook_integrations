@@ -8,7 +8,14 @@ from typing import Any, Self
 
 import httpx
 
-from pybloomin8.constants import HTTP_REQUEST_TIMEOUT_SECONDS, HTTP_UPLOAD_TIMEOUT_SECONDS, STATE_READY_DELAY_SECONDS, STATE_READY_TIMEOUT_SECONDS
+from pybloomin8.constants import (
+    HTTP_REQUEST_TIMEOUT_SECONDS,
+    HTTP_UPLOAD_TIMEOUT_SECONDS,
+    SHOW_RETRY_ATTEMPTS,
+    STATE_READY_DELAY_SECONDS,
+    STATE_READY_STATUS_RETURN_CODE,
+    STATE_READY_TIMEOUT_SECONDS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -50,7 +57,20 @@ class Bloomin8Api:
         while time.monotonic() < deadline:
             try:
                 response = await self._client.get("/state", timeout=3.0)
-                if response.status_code == 200:
+                try:
+                    payload = response.json()
+                except ValueError:
+                    payload = None
+                log.info(
+                    "[Bloomin8 API] /state -> HTTP %s %s",
+                    response.status_code,
+                    payload if payload is not None else response.text,
+                )
+                if (
+                    response.status_code == 200
+                    and isinstance(payload, dict)
+                    and payload.get("status") == STATE_READY_STATUS_RETURN_CODE
+                ):
                     log.info("[Bloomin8 API] Device task state is ready")
                     return
             except (
@@ -62,8 +82,31 @@ class Bloomin8Api:
             await asyncio.sleep(STATE_READY_DELAY_SECONDS)
 
         raise RuntimeError(
-            f"Device at {self.ip_address} did not respond within {timeout}s"
+            f"Device at {self.ip_address} did not become ready within {timeout}s"
         )
+
+    async def _post_show(
+        self, payload: dict[str, Any], attempts: int = SHOW_RETRY_ATTEMPTS
+    ) -> None:
+        """POST to /show, retrying while the frame reports it is busy (5xx)."""
+        for attempt in range(1, attempts + 1):
+            response = await self._client.post(
+                "/show",
+                json=payload,
+                timeout=HTTP_REQUEST_TIMEOUT_SECONDS,
+            )
+            if response.is_server_error and attempt < attempts:
+                log.warning(
+                    "[Bloomin8 API] /show returned %s (attempt %d/%d), retrying in %ss",
+                    response.status_code,
+                    attempt,
+                    attempts,
+                    STATE_READY_DELAY_SECONDS,
+                )
+                await asyncio.sleep(STATE_READY_DELAY_SECONDS)
+                continue
+            response.raise_for_status()
+            return
 
     async def get_device_info(self) -> dict[str, Any]:
         """Return the frame's current display state and dimensions."""
@@ -109,12 +152,7 @@ class Bloomin8Api:
             payload["dither"] = dither
 
         await self.wait_until_ready()
-        response = await self._client.post(
-            "/show",
-            json=payload,
-            timeout=HTTP_REQUEST_TIMEOUT_SECONDS,
-        )
-        response.raise_for_status()
+        await self._post_show(payload)
         log.info("[Bloomin8 API] Existing image displayed: %s/%s", gallery, filename)
 
     async def upload_and_show(
@@ -132,7 +170,6 @@ class Bloomin8Api:
         }
         if dither is not None:
             params["dither"] = dither
-            
         await self.wait_until_ready()
         response = await self._client.post(
             "/upload",
@@ -159,10 +196,8 @@ class Bloomin8Api:
             payload["duration"] = saved_state.get("play_duration", 300)
         elif play_type == 2:
             payload["playlist"] = saved_state.get("playlist", "")
-
         await self.wait_until_ready()
-        response = await self._client.post("/show", json=payload, timeout=HTTP_REQUEST_TIMEOUT_SECONDS)
-        response.raise_for_status()
+        await self._post_show(payload)
 
         log.info("[Bloomin8 API] Restored backed up display status")
 
