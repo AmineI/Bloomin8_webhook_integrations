@@ -13,7 +13,7 @@ from pybloomin8.constants import (
     HTTP_UPLOAD_TIMEOUT_SECONDS,
     SHOW_RETRY_ATTEMPTS,
     STATE_READY_DELAY_SECONDS,
-    STATE_READY_STATUS_RETURN_CODE,
+    STATE_READY_STATUS_RETURN_CODES,
     STATE_READY_TIMEOUT_SECONDS,
 )
 
@@ -69,7 +69,7 @@ class Bloomin8Api:
                 if (
                     response.status_code == 200
                     and isinstance(payload, dict)
-                    and payload.get("status") == STATE_READY_STATUS_RETURN_CODE
+                    and payload.get("status") in STATE_READY_STATUS_RETURN_CODES
                 ):
                     log.info("[Bloomin8 API] Device task state is ready")
                     return
@@ -88,7 +88,7 @@ class Bloomin8Api:
     async def _post_show(
         self, payload: dict[str, Any], attempts: int = SHOW_RETRY_ATTEMPTS
     ) -> None:
-        """POST to /show, retrying while the frame reports it is busy (5xx)."""
+        """POST to /show, retrying on errors (5xx)."""
         for attempt in range(1, attempts + 1):
             response = await self._client.post(
                 "/show",
@@ -97,13 +97,12 @@ class Bloomin8Api:
             )
             if response.is_server_error and attempt < attempts:
                 log.warning(
-                    "[Bloomin8 API] /show returned %s (attempt %d/%d), retrying in %ss",
+                    "[Bloomin8 API] /show returned %s (attempt %d/%d), retrying once ready",
                     response.status_code,
                     attempt,
-                    attempts,
-                    STATE_READY_DELAY_SECONDS,
+                    attempts
                 )
-                await asyncio.sleep(STATE_READY_DELAY_SECONDS)
+                await self.wait_until_ready()
                 continue
             response.raise_for_status()
             return
