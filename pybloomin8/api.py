@@ -13,6 +13,11 @@ from pybloomin8.constants import HTTP_REQUEST_TIMEOUT_SECONDS, HTTP_UPLOAD_TIMEO
 log = logging.getLogger(__name__)
 
 
+def gallery_image_path(gallery: str, filename: str) -> str:
+    """Return the device-side path used by both /show and deviceInfo's `image`."""
+    return f"/gallerys/{gallery}/{filename}"
+
+
 class Bloomin8Api:
     """Manage HTTP requests to one Bloomin8 frame."""
 
@@ -98,7 +103,7 @@ class Bloomin8Api:
         """Display an image that is already stored on the frame."""
         payload: dict[str, Any] = {
             "play_type": 0,
-            "image": f"/gallerys/{gallery}/{filename}",
+            "image": gallery_image_path(gallery, filename),
         }
         if dither is not None:
             payload["dither"] = dither

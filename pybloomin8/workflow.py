@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .api import Bloomin8Api
+from .api import Bloomin8Api, gallery_image_path
 from .ble import wake_device
 from .constants import MANAGED_GALLERIES, STATE_READY_DELAY_SECONDS
 from .image import FitMode, prepare_image
@@ -78,14 +78,23 @@ class TemporaryImageWorkflow:
         log.info("=== Upload temporary image ===")
         await self.wake_and_connect()
         current_state = await self.api.get_device_info()
-        self.state_backup.backup_current_state(current_state, overwrite_state)
 
         log.info("  Current image : %s", current_state.get("image"))
         log.info("  Current gallery : %s", current_state.get("gallery"))
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
-
+        # Only act if the current image is not the same as the target image.
         bloomin8_filename = f"{name}_{fit_mode}.jpg"
+        target_bloomin8_path = gallery_image_path(gallery, bloomin8_filename)
+
+        # Only play_type 0 holds a still image; under slideshow modes the match is transient.
+        if current_state.get("image") == target_bloomin8_path and int(current_state.get("play_type", 0)) == 0:
+            log.info("Skipping refresh: Image was already displayed %s", target_bloomin8_path)
+            return
+
+        self.state_backup.backup_current_state(current_state, overwrite_state)
+
+
         if await self.api.image_exists(bloomin8_filename, gallery):
             await self.api.show_image(bloomin8_filename, gallery, dither=dither)
             return
