@@ -1,0 +1,17 @@
+.venv/
+.git/
+__pycache__/
+*.egg-info/
+
+# Secrets and local state must never land in the image.
+.env
+local.settings.json
+bloomin8-state/
+
+# Local Azurite emulator data.
+__blobstorage__/
+__queuestorage__/
+__azurite_db_*.json
+
+
+BloominWake_dotnet/*
