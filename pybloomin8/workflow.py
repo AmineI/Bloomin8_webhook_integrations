@@ -80,7 +80,14 @@ class TemporaryImageWorkflow:
         With `only_if_idle`, the frame is left untouched when it reports it is busy
         with another task. Returns whether the frame now shows the requested image.
         """
-        log.info("=== Upload temporary image ===")
+        log.info("=== Upload temporary image  (overwrite_state=%s) ===", overwrite_state)
+        log.info(
+            "  Requested     : %s -> %s (display_mode=%s, %d bytes)",
+            name,
+            gallery,
+            display_mode,
+            len(image_data),
+        )
         try:
             await self.wake_and_connect(abort_when_busy=only_if_idle)
         except BlockingIOError as error:
@@ -114,7 +121,7 @@ class TemporaryImageWorkflow:
 
     async def restore(self, overwrite_state: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
-        log.info("=== Restore previous state ===")
+        log.info("=== Restore previous state (overwrite_state=%s) ===", overwrite_state)
         await self.wake_and_connect()
         current_state = await self.api.get_device_info()
         if not is_managed_image(current_state, self.managed_galleries) and not overwrite_state :
