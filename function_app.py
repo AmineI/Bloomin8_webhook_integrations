@@ -1,155 +1,29 @@
-import azure.functions as func
-import asyncio
-import logging
 import json
-import os
-from urllib.parse import quote
+import logging
 
-import httpx
+import azure.functions as func
+
 import pybloomin8
+from pybloomin8.image import DisplayMode
+from pybloomin8 import settings
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
+from webhook_helpers import config, debounce, plex, request
 
-
-def _env_flag(name: str, default: str = "true") -> bool:
-    return (os.getenv(name) or default).strip().lower() in ("true", "1", "yes")
-
-
-PLEX_SERVER_URL = os.getenv("PLEX_SERVER_URL","").strip().rstrip("/")
-PLEX_TOKEN = os.getenv("PLEX_TOKEN","")
-REQUIRE_OWNER_PLAYBACK = _env_flag("PROCESS_OWNER_PLAYBACK_ONLY","true")
-REQUIRE_LOCAL_PLAYER = _env_flag("PROCESS_LOCAL_PLAYBACK_ONLY","true")
-STOP_DEBOUNCE_SECONDS = int(os.getenv("STOP_DEBOUNCE_SECONDS", "25"))
-POSTER_DOWNLOAD_TIMEOUT_SECONDS = 20.0
-POSTER_MAX_BYTES = 16 * 1024 * 1024
-BLOOMIN8_SHOW_POSTER_GALLERY = "shows"
-
-# TODO : Resolve once at load so an invalid frame configuration fails at startup, not mid-webhook.
-# pybloomin8.get_settings()
-
-# The debounced restore is held in a module global so it survives the webhook response.
-_pending_restore: asyncio.Task | None = None
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 
-def cancel_pending_restore() -> None:
-    global _pending_restore
-
-    # cancel() returns False when the restore already ran, so this only logs real cancellations.
-    if _pending_restore is not None and _pending_restore.cancel():
-        logging.info("Pending restore cancelled by a newer event.")
-
-    _pending_restore = None
-
-
-def schedule_stop() -> asyncio.Task:
-    """Restore the frame after the debounce window, unless a play arrives first."""
-    global _pending_restore
-
-    cancel_pending_restore()
-    _pending_restore = asyncio.create_task(_restore_later())
-    return _pending_restore
-
-
-async def perform_restore(overwrite_state: bool = False) -> None:
-    logging.info("Restoring frame state (overwrite_state=%s).", overwrite_state)
-    await pybloomin8.restore(overwrite_state=overwrite_state)
-    logging.info("Restore completed.")
-
-
-async def _restore_later() -> None:
-    global _pending_restore
-
-    await asyncio.sleep(STOP_DEBOUNCE_SECONDS)
-    # Past the window the restore is committed; a later play must not interrupt it.
-    _pending_restore = None
-
-    logging.info("Media stop confirmed : debounce delay elapsed")
-    try:
-        await perform_restore()
-    except Exception:
-        logging.exception("Restore failed.")
-
-
-async def download_poster(poster_url: str) -> bytes:
-    """Fetch the poster into memory, refusing responses larger than POSTER_MAX_BYTES."""
-    async with httpx.AsyncClient(timeout=POSTER_DOWNLOAD_TIMEOUT_SECONDS) as client:
-        async with client.stream("GET", poster_url) as response:
-            response.raise_for_status()
-
-            chunks = bytearray()
-            async for chunk in response.aiter_bytes():
-                chunks += chunk
-                if len(chunks) > POSTER_MAX_BYTES:
-                    raise ValueError(f"Poster exceeds {POSTER_MAX_BYTES} bytes.")
-
-    return bytes(chunks)
-
-
-async def temp_show_poster(poster_url: str, poster_id: str) -> None:
-    logging.info("Displaying poster %s: %s", poster_id, poster_url)
-    try:
-        poster_data = await download_poster(poster_url)
-        await pybloomin8.temp_show_image_from_bytes(poster_data, poster_id, gallery=BLOOMIN8_SHOW_POSTER_GALLERY)
-        logging.info("Display completed.")
-    except Exception:
-        # A frame failure is not the sender's problem, so it is logged rather than raised.
-        logging.exception("Display failed.")
-
-
-def should_skip_webhook(payload: dict) -> bool:
-    # Each restriction is opt-in via its own env var, defaulting to enabled.
-    if REQUIRE_OWNER_PLAYBACK and not payload.get("owner"):
-        logging.info("Skipping webhook: owner-only playback restriction not met.")
-        return True
-
-    if REQUIRE_LOCAL_PLAYER and not (payload.get("Player") or {}).get("local"):
-        logging.info("Skipping webhook: local-player restriction not met.")
-        return True
-
-    # Only media.play and media.stop are relevant for our workflow; ignore the rest.
-    if payload.get("event") not in ("media.play", "media.stop"):
-        logging.info("Skipping webhook: event '%s' is not media.play/media.stop.", payload.get("event"))
-        return True
-
-    return False
-
-
-def build_thumb_url(library_partial_path: str | None) -> str | None:
-    # Resolves a Plex-relative thumb path (e.g. "/library/metadata/123/thumb/456")
-    # into a fully qualified URL against PLEX_SERVER_URL, authenticated with PLEX_TOKEN.
-    if not library_partial_path or not PLEX_SERVER_URL:
-        return None
-
-    url = f"{PLEX_SERVER_URL}{library_partial_path}"
-    if not PLEX_TOKEN:
-        return url
-
-    # Metadata paths from Plex never carry a query string of their own, so we can always append token once escaped.
-    return f"{url}?X-Plex-Token={quote(PLEX_TOKEN, safe='')}"
-
-def extract_movie_poster(metadata):
-    poster_plex_partial_path = metadata.get("thumb")
-    poster_item_id = metadata.get("ratingKey")
-    logging.info("Getting movie poster: poster_item_id=%s", poster_item_id)
-    return poster_plex_partial_path,poster_item_id
-
-def extract_show_poster(metadata):
-    if metadata.get("parentThumb"):
-        poster_plex_partial_path = metadata.get("parentThumb")
-        poster_item_id = metadata.get("parentRatingKey")
-        logging.info(
-                "Getting season poster : grandparentTitle=%s, parentTitle=%s",
-                metadata.get("grandparentTitle"),
-                metadata.get("parentTitle"),
-            )
-    else:
-        poster_plex_partial_path = metadata.get("grandparentThumb")
-        poster_item_id = metadata.get("grandparentRatingKey")
-        logging.info(
-                "Getting show poster: grandparentTitle=%s",
-                metadata.get("grandparentTitle"),
-            )
-    return poster_plex_partial_path,poster_item_id
+async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode) -> bool:
+    """Download the poster from Plex and display it, unless the frame is busy."""
+    logging.info("Downloading poster %s: %s", poster_filename, poster_url)
+    poster_data = await plex.download_poster(poster_url)
+    return await pybloomin8.temp_show_image_from_bytes(
+        poster_data,
+        poster_filename,
+        gallery=config.BLOOMIN8_MEDIA_POSTER_GALLERY,
+        display_mode=display_mode,
+        overwrite_state=config.PLEX_OVERWRITE_STATE,
+        only_if_idle=config.PLEX_ACTION_ONLY_IF_IDLE,
+    )
 
 
 # https://support.plex.tv/hc/en-us/articles/115002267687-Webhooks
@@ -171,61 +45,92 @@ async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )    
 
-    if should_skip_webhook(payload):
+    if plex.should_skip_webhook(payload):
         return func.HttpResponse("OK", status_code=200)
 
     event_name = payload.get("event")
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        restore_task = schedule_stop()
-        logging.info("Holding the response for up to %ss before restoring.", STOP_DEBOUNCE_SECONDS)
-
-        # Waiting inside the invocation stops the host from tearing the worker down mid-debounce.
-        # asyncio.wait() returns instead of raising when a newer event cancels the task.
-        await asyncio.wait({restore_task})
-
-        if restore_task.cancelled():
-            return func.HttpResponse("Restore cancelled by a newer event.", status_code=200)
-
-        return func.HttpResponse("Restored", status_code=200)
+        restore_task = debounce.schedule(
+            lambda: pybloomin8.restore(config.PLEX_OVERWRITE_STATE), config.RESTORE_DEBOUNCE_SECONDS
+        )
+        message, status_code = await debounce.wait_for_result(restore_task, "Restore")
+        return func.HttpResponse(message, status_code=status_code)
     else:
         metadata = payload.get("Metadata") or {}
-        media_type = metadata.get("type")
-        poster_plex_partial_path = poster_item_id = None
+        try:
+            poster_plex_partial_path, poster_filename = plex.extract_media_poster(metadata)
+        except LookupError as error:
+            logging.warning("%s; frame left unchanged.", error)
+            return func.HttpResponse(str(error), status_code=404)
 
-        # Episode thumbs are preview frames, not posters; use the season/show art and its rating key instead.
-        if media_type == "episode":
-            poster_plex_partial_path, poster_item_id = extract_show_poster(metadata)
-        elif media_type == "movie":
-            poster_plex_partial_path, poster_item_id = extract_movie_poster(metadata)
+        # Album art is square, so it gets the backdrop treatment; posters already fill the frame.
+        poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE if metadata.get("type") == "track" else "cover"
 
-        poster_full_url = build_thumb_url(poster_plex_partial_path)
-        if not poster_full_url or not poster_item_id:
-            logging.info("No poster resolved for media type '%s'; frame left unchanged.", media_type)
-            return func.HttpResponse("OK", status_code=200)
+        poster_full_url = plex.build_thumb_url(poster_plex_partial_path)
+        if not poster_full_url:
+            logging.warning("PLEX_SERVER_URL is not configured; frame left unchanged.")
+            return func.HttpResponse("PLEX_SERVER_URL is not configured.", status_code=500)
 
-        logging.info("Poster: name=%s url=%s", poster_item_id, poster_full_url)
-        cancel_pending_restore()
-        await temp_show_poster(poster_full_url, poster_item_id)
-        return func.HttpResponse("OK", status_code=200)
+        show_task = debounce.schedule(
+            lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode),
+            config.SHOW_DEBOUNCE_SECONDS,
+        )
+        message, status_code = await debounce.wait_for_result(show_task, "Display")
+        return func.HttpResponse(message, status_code=status_code)
 
 
 @app.route(route="http_restore_trigger", methods=["POST"])
 async def http_restore_trigger(req: func.HttpRequest) -> func.HttpResponse:
     """Restore the saved frame state now, bypassing the stop debounce."""
     # Forces the restore even when the frame shows an image the workflow did not put there.
-    overwrite_state = (req.params.get("overwrite_state") or "").strip().lower() in ("true", "1", "yes")
+    overwrite_state = request.param_flag(req, "overwrite_state")
     logging.info("Restore requested over HTTP (overwrite_state=%s).", overwrite_state)
 
-    # A pending debounced restore would otherwise fire later against already-restored state.
-    cancel_pending_restore()
+    # Scheduling with no delay also drops any pending action that would fire against restored state.
+    restore_task = debounce.schedule(lambda: pybloomin8.restore(overwrite_state), config.RESTORE_DEBOUNCE_SECONDS)
+    message, status_code = await debounce.wait_for_result(restore_task, "Restore")
+    return func.HttpResponse(message, status_code=status_code)
+
+
+@app.route(route="http_show_image_trigger", methods=["POST"])
+async def http_show_image_trigger(req: func.HttpRequest) -> func.HttpResponse:
+    """Display an image posted as the raw request body or as a multipart 'image' field."""
+    image_data, uploaded_filename = request.extract_uploaded_image(req)
+    if not image_data:
+        return func.HttpResponse("No image supplied.", status_code=400)
+
+    if len(image_data) > config.POSTER_MAX_BYTES:
+        return func.HttpResponse(f"Image exceeds {config.POSTER_MAX_BYTES} bytes.", status_code=400)
+
+    image_name = request.resolve_image_name(req, uploaded_filename)
+    if image_name is None:
+        return func.HttpResponse(
+            "Missing 'name'. Supply it as a query parameter or as the upload filename.",
+            status_code=400,
+        )
+
+    settings = pybloomin8.get_settings()
 
     try:
-        await perform_restore(overwrite_state)
-    except Exception as error:
-        logging.exception("Restore failed.")
-        return func.HttpResponse(f"Restore failed: {error}", status_code=500)
+        gallery = settings.resolve_gallery(req.params.get("gallery"), settings.managed_galleries)
+        display_mode = settings.resolve_display_mode(req.params.get("display_mode"))
+    except ValueError as error:
+        return func.HttpResponse(str(error), status_code=400)
 
-    return func.HttpResponse("Restored", status_code=200)
+    overwrite_state = request.param_flag(req, "overwrite_state")
+    show_task = debounce.schedule(
+        lambda: pybloomin8.temp_show_image_from_bytes(
+            image_data,
+            image_name,
+            gallery=gallery,
+            display_mode=display_mode,
+            overwrite_state=overwrite_state,
+        ),
+        config.SHOW_DEBOUNCE_SECONDS,
+    )
+
+    message, status_code = await debounce.wait_for_result(show_task, "Display")
+    return func.HttpResponse(message, status_code=status_code)
 

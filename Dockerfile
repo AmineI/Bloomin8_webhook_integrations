@@ -14,6 +14,7 @@ COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
 COPY function_app.py host.json /home/site/wwwroot/
+COPY webhook_helpers/ /home/site/wwwroot/webhook_helpers/
 # Placed beside function_app.py so `python -m pybloomin8` resolves and its state
 # directory lands in /home/site/wwwroot/bloomin8-state.
 COPY pybloomin8/ /home/site/wwwroot/pybloomin8/

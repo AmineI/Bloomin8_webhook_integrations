@@ -80,7 +80,7 @@ the modes differ the most.
 
 | Mode | Dark artwork | Bright artwork | Description |
 | --- | --- | --- | --- |
-| `cover` *(default)* | <img src="display_mode_previews/cover-1765643572.jpg" width="140"> | <img src="display_mode_previews/cover-1785317506.jpg" width="140"> | Scales until the panel is covered, keeping the aspect ratio; the frame crops the overflow. |
+| `cover` *(default)* | <img src="display_mode_previews/cover-1765643572.jpg" width="140"> | <img src="display_mode_previews/cover-1785317506.jpg" width="140"> | Scales until the panel is covered, keeping aspect ratio; the frame crops the overflow. |
 | `fit` | <img src="display_mode_previews/fit-1765643572.jpg" width="140"> | <img src="display_mode_previews/fit-1785317506.jpg" width="140"> | Scales and center-crops to exactly the panel size. |
 | `pad` | <img src="display_mode_previews/pad-1765643572.jpg" width="140"> | <img src="display_mode_previews/pad-1785317506.jpg" width="140"> | Scales until the whole image fits, leaving the remaining space blank (letterboxing). |
 | `border-color-pad` | <img src="display_mode_previews/border-color-pad-1765643572.jpg" width="140"> | <img src="display_mode_previews/border-color-pad-1785317506.jpg" width="140"> | `pad`, with the empty space filled using the image's average border colour. |
@@ -89,3 +89,49 @@ the modes differ the most.
 | `vibrant-popout` | <img src="display_mode_previews/vibrant-popout-1765643572.jpg" width="140"> | <img src="display_mode_previews/vibrant-popout-1785317506.jpg" width="140"> | Floats the image over a backdrop built from the artwork's most vibrant colours. |
 | `blur-pad` | <img src="display_mode_previews/blur-pad-1765643572.jpg" width="140"> | <img src="display_mode_previews/blur-pad-1785317506.jpg" width="140"> | `pad`, with the empty space filled by a blurred enlargement of the image itself. |
 | `blur-popout` | <img src="display_mode_previews/blur-popout-1765643572.jpg" width="140"> | <img src="display_mode_previews/blur-popout-1785317506.jpg" width="140"> | Floats the image over a blurred, muted enlargement of itself. |
+
+---
+
+## Plex webhook function app
+
+### Run it
+
+```bash
+docker compose up --build
+```
+
+The container publishes port `57071`. Point the Plex webhook at
+`http://<host>:57071/api/plex_webhook_trigger`.
+
+### Endpoints
+
+| Method & route | Purpose | Query parameters |
+| --- | --- | --- |
+| `POST /api/plex_webhook_trigger` | Plex webhook target: shows the poster on play, restores on stop. | — |
+| `POST /api/http_show_image_trigger` | Displays an image sent as the raw body or as a multipart `image` field (max 16 MB). | `name`, `gallery`, `display_mode`, `overwrite_state` |
+| `POST /api/http_restore_trigger` | Restores the saved state immediately, bypassing the stop debounce. | `overwrite_state` |
+
+`name` becomes a filename on the frame, so anything outside letters, digits, dots, dashes
+and underscores is replaced with an underscore. It falls back to the upload filename, and
+the request is rejected only when neither is supplied.
+
+> The routes are anonymous. Keep the app on a trusted network, or put it behind a reverse
+> proxy that handles authentication.
+
+### Configuration
+
+Frame settings (`BLOOMIN8_MAC`, `BLOOMIN8_IP`, `BLOOMIN8_MANAGED_GALLERIES`, …) are shared
+with the CLI. Posters always go to the `media` gallery, so it must stay in the managed
+gallery allowlist. The webhook adds:
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `PLEX_SERVER_URL` | — | Base URL of the Plex server, used to download posters. |
+| `PLEX_TOKEN` | — | Plex [authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). |
+| `PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where `Account.owner` is false. |
+| `PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where `Player.local` is false. |
+| `PLEX_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image it did not set. |
+| `PLEX_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
+| `SHOW_DEBOUNCE_SECONDS` | `5` | Wait before uploading, so skipping between items replaces the pending image instead of sending one slow upload per event. |
+| `RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |
+| `TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode for music tracks, whose square album art does not fill the panel. Posters always use `cover`. |
