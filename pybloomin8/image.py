@@ -44,11 +44,11 @@ def prepare_image(
       - gradient-popout: gradient-pad, with the image floating with a margin, rounded
                 corners and a soft drop shadow
       - vibrant-popout: the image floats with a margin over a backdrop built from the
-                artwork's most vibrant colours, with a soft drop shadow
+                artwork's most vibrant colours, with rounded corners and a soft drop shadow
       - blur-pad: pad, with the empty space filled with a blurred enlargement of
                 the image itself
       - blur-popout: the image floats with a margin over a blurred, muted enlargement of
-                the image itself, with a soft drop shadow
+                the image itself, with rounded corners and a soft drop shadow
     """
     with Image.open(BytesIO(image_data)) as opened:
         image = opened.convert("RGB")

@@ -12,7 +12,8 @@ HTTP_REQUEST_TIMEOUT_SECONDS = 10
 HTTP_UPLOAD_TIMEOUT_SECONDS = 45
 
 """Default settings values for the Bloomin8 modules."""
-DEFAULT_MANAGED_GALLERIES = ("temp",)
+# First entry doubles as the default destination gallery.
+DEFAULT_MANAGED_GALLERIES = ("temp", "games", "media")
 DEFAULT_DISPLAY_MODE = "cover"
 DEFAULT_ONLY_IF_IDLE = False
 
