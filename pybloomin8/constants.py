@@ -15,6 +15,7 @@ HTTP_UPLOAD_TIMEOUT_SECONDS = 45
 # First entry doubles as the default destination gallery.
 DEFAULT_MANAGED_GALLERIES = ("temp", "games", "media")
 DEFAULT_DISPLAY_MODE = "cover"
+DEFAULT_EINK_PRESET = "off"
 DEFAULT_ONLY_IF_IDLE = False
 
 # deviceInfo also reports volatile values (battery, wifi...), so only the fields a restore

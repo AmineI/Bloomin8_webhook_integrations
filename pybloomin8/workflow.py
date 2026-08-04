@@ -1,18 +1,15 @@
 """High-level temporary-image workflow."""
 
-import asyncio
 import logging
 from pathlib import Path
-from typing import Any
 
 from .api import Bloomin8Api, gallery_image_path, safe_filename
 from .ble import wake_device
-from .constants import STATE_READY_DELAY_SECONDS
+from . import eink
 from .image import DisplayMode, prepare_image
 from .state import DisplayStateStore, is_managed_image
 
 log = logging.getLogger(__name__)
-
 
 class TemporaryImageWorkflow:
     """Display an image while keeping the ability to restore the previous frame state."""
@@ -48,9 +45,10 @@ class TemporaryImageWorkflow:
         self,
         image_path: Path,
         gallery: str,
+        eink_optimization_preset: eink.EinkPreset,
+        display_mode: DisplayMode,
         overwrite_state: bool = False,
         dither: int | None = None,
-        display_mode: DisplayMode = "cover",
         only_if_idle: bool = False,
     ) -> bool:
         """Save the current state and display a temporary image read from disk."""
@@ -62,6 +60,7 @@ class TemporaryImageWorkflow:
             dither=dither,
             display_mode=display_mode,
             only_if_idle=only_if_idle,
+            eink_optimization_preset=eink_optimization_preset,
         )
 
     async def replace_image_bytes(
@@ -69,9 +68,10 @@ class TemporaryImageWorkflow:
         image_data: bytes,
         gallery: str,
         name: str,
+        eink_optimization_preset: eink.EinkPreset,
+        display_mode: DisplayMode,
         overwrite_state: bool = False,
         dither: int | None = None,
-        display_mode: DisplayMode = "cover",
         only_if_idle: bool = False,
     ) -> bool:
         """Save the current state and display a temporary image held in memory.
@@ -100,7 +100,7 @@ class TemporaryImageWorkflow:
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
         # Only act if the current image is not the same as the target image.
-        bloomin8_filename = f"{safe_filename(name)}_{display_mode}.jpg"
+        bloomin8_filename = f"{safe_filename(name)}_{display_mode}_eink-{eink_optimization_preset}.jpg"
         target_bloomin8_path = gallery_image_path(gallery, bloomin8_filename)
 
         # Only play_type 0 holds a still image; under slideshow modes the match is transient.
@@ -115,7 +115,13 @@ class TemporaryImageWorkflow:
             await self.api.show_image(bloomin8_filename, gallery, dither=dither)
             return True
 
-        prepared_image = prepare_image(image_data, int(current_state["width"]), int(current_state["height"]), display_mode=display_mode)
+        prepared_image = prepare_image(
+            image_data,
+            int(current_state["width"]),
+            int(current_state["height"]),
+            display_mode=display_mode,
+            eink_optimization_preset=eink_optimization_preset,
+        )
         await self.api.upload_and_show(prepared_image, bloomin8_filename, gallery, dither=dither)
         return True
 

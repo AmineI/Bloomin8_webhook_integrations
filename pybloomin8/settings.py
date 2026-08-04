@@ -10,7 +10,13 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import cast
 
-from .constants import DEFAULT_MANAGED_GALLERIES, DEFAULT_DISPLAY_MODE, DEFAULT_ONLY_IF_IDLE
+from .constants import (
+    DEFAULT_DISPLAY_MODE,
+    DEFAULT_EINK_PRESET,
+    DEFAULT_MANAGED_GALLERIES,
+    DEFAULT_ONLY_IF_IDLE
+)
+from . import eink
 from .image import DISPLAY_MODES, DisplayMode
 
 
@@ -82,6 +88,13 @@ def resolve_only_if_idle(override: bool | None = None) -> bool:
         return DEFAULT_ONLY_IF_IDLE
     return raw.strip().lower() in ("true", "1", "yes")
 
+def resolve_eink_optimization_preset(override: str | None = None) -> eink.EinkPreset:
+    """Resolve the e-ink optimization preset used before upload."""
+    preset = (override or env_value("BLOOMIN8_EINK_PRESET") or DEFAULT_EINK_PRESET).strip().lower().replace("_", "-")
+    if preset not in eink.EINK_PRESETS:
+        allowed = ", ".join(eink.EINK_PRESETS)
+        raise ValueError(f"Unsupported e-ink preset '{preset}'. Allowed values: {allowed}")
+    return cast(eink.EinkPreset, preset)
 
 def resolve_debug_requests(override: bool | None = None) -> bool:
     """Resolve whether HTTP client debug logs should be enabled."""
@@ -92,12 +105,10 @@ def resolve_debug_requests(override: bool | None = None) -> bool:
         return False
     return raw.strip().lower() in ("true", "1", "yes")
 
-
 def configure_request_logging(debug_requests: bool) -> None:
     """Set HTTP client logger verbosity across common request stacks."""
     level = logging.INFO if debug_requests else logging.WARNING
     logging.getLogger("requests").setLevel(level)
-
 
 
 @dataclass(frozen=True)
@@ -110,6 +121,7 @@ class Settings:
     gallery: str
     display_mode: DisplayMode
     only_if_idle: bool
+    eink_optimization_preset: eink.EinkPreset
     debug_requests: bool
 
     @classmethod
@@ -122,6 +134,7 @@ class Settings:
         gallery: str | None = None,
         display_mode: str | None = None,
         only_if_idle: bool | None = None,
+        eink_optimization_preset: str | None = None,
         debug_requests: bool | None = None,
     ) -> "Settings":
         """Build settings, letting the given overrides win over the environment."""
@@ -133,6 +146,7 @@ class Settings:
             gallery=resolve_gallery(gallery, resolved_mgd_galleries),
             display_mode=resolve_display_mode(display_mode),
             only_if_idle=resolve_only_if_idle(only_if_idle),
+            eink_optimization_preset=resolve_eink_optimization_preset(eink_optimization_preset),
             debug_requests=resolve_debug_requests(debug_requests),
         )
 

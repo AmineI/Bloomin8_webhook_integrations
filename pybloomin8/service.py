@@ -1,5 +1,6 @@
 """Environment-configured entry points for embedding pybloomin8 in a service."""
 
+from . import eink
 from .image import DisplayMode
 from .settings import get_settings
 from .workflow import TemporaryImageWorkflow
@@ -13,6 +14,7 @@ async def temp_show_image_from_bytes(
     dither: int | None = None,
     overwrite_state: bool = False,
     only_if_idle: bool | None = None,
+    eink_optimization_preset: eink.EinkPreset | None = None,
 ) -> bool:
     """Display an in-memory image on the frame configured by the environment.
 
@@ -31,6 +33,11 @@ async def temp_show_image_from_bytes(
             dither=dither,
             display_mode=display_mode or settings.display_mode,
             only_if_idle=settings.only_if_idle if only_if_idle is None else only_if_idle,
+            eink_optimization_preset=(
+                settings.eink_optimization_preset
+                if eink_optimization_preset is None
+                else eink_optimization_preset
+            ),
         )
 
 

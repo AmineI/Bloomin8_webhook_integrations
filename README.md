@@ -58,6 +58,7 @@ Every option falls back to its environment variable, so a flag is only needed to
 | `--gallery` | `BLOOMIN8_GALLERY` | `temp` (first managed gallery) | `show`, `delete-gallery` | Destination gallery on the frame. Must be one of the managed galleries. |
 | `--managed-galleries` | `BLOOMIN8_MANAGED_GALLERIES` | `temp,show,games,media` | `show`, `restore`, `delete-gallery` | Comma-separated allowlist of the galleries this tool owns. Anything displayed from outside it counts as a user-set image. |
 | `--display-mode` | `BLOOMIN8_DISPLAY_MODE` | `cover` | `show` | How the image is resized to the panel. See [Display modes](#display-modes). |
+| `--eink-optimization-preset` | `BLOOMIN8_PYTHON_EINK_PRESET` | `1` | `show` | E-ink optimization preset applied before upload: `off` or `1` (brighter, more saturated Bloomin8 JPEG-upload tuning). |
 | `--only-if-idle` / `--no-only-if-idle` | `BLOOMIN8_ONLY_IF_IDLE` | off | `show` | Cancel instead of queueing when the frame is already busy. |
 | `--dither` | — | frame default | `show` | `0` for Floyd–Steinberg (often better), `1` for JJN (often faster). |
 | `--overwrite-state` | — | off | `show`, `restore` | On `show`, back up and replace a user-set image even though a different backup is still waiting to be restored, losing that backup. On `restore`, put the backup back over a user-set image instead of refusing. |

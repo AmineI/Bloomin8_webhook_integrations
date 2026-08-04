@@ -7,6 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .eink import EINK_PRESETS
 from .api import Bloomin8Api
 from .image import DISPLAY_MODES
 from .settings import Settings, configure_request_logging, resolve_ip
@@ -68,6 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
         choices=list(DISPLAY_MODES),
         help="How to resize the image, described in the README (default: BLOOMIN8_DISPLAY_MODE, else cover).",
     )
+    show_parser.add_argument(
+        "--eink-optimization-preset",
+        choices=list(EINK_PRESETS),
+        help=(
+            "E-ink optimization preset applied before upload "
+            "(default: BLOOMIN8_PYTHON_EINK_PRESET, else package default)."
+        ),
+    )
 
     restore_parser = commands.add_parser(
         "restore",
@@ -115,6 +124,7 @@ async def run_from_args(args: argparse.Namespace, settings: Settings) -> None:
                 overwrite_state=args.overwrite_state,
                 display_mode=settings.display_mode,
                 only_if_idle=settings.only_if_idle,
+                eink_optimization_preset=settings.eink_optimization_preset,
             )
         elif args.command == "delete-gallery":
             await workflow.wake_and_connect()
@@ -154,6 +164,7 @@ def main() -> None:
             gallery=getattr(args, "gallery", None),
             display_mode=getattr(args, "display_mode", None),
             only_if_idle=getattr(args, "only_if_idle", None),
+            eink_optimization_preset=getattr(args, "eink_optimization_preset", None),
         )
         configure_request_logging(settings.debug_requests)
     except ValueError as error:

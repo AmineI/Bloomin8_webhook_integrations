@@ -6,7 +6,7 @@ from typing import Literal, get_args
 
 from PIL import Image, ImageOps
 
-from . import effects
+from . import effects, eink
 
 log = logging.getLogger(__name__)
 
@@ -25,7 +25,11 @@ DISPLAY_MODES: tuple[DisplayMode, ...] = get_args(DisplayMode)
 
 
 def prepare_image(
-    image_data: bytes, width: int, height: int, display_mode: DisplayMode = "cover"
+    image_data: bytes,
+    width: int,
+    height: int,
+    eink_optimization_preset: eink.EinkPreset,
+    display_mode: DisplayMode = "cover",
 ) -> bytes:
     """Convert encoded image data to a JPEG sized for the frame.
 
@@ -79,14 +83,17 @@ def prepare_image(
         else:
             raise ValueError(f"Unsupported display_mode: {display_mode}")
 
+        image = eink.optimize_for_eink(image, preset=eink_optimization_preset)
+
     buffer = BytesIO()
     image.save(buffer, format="JPEG", quality=95)
     log.info(
-        "[IMG] Prepared %d bytes -> %dx%d JPEG (%d bytes) [%s]",
+        "[IMG] Prepared %d bytes -> %dx%d JPEG (%d bytes) [%s, eink=%s]",
         len(image_data),
         width,
         height,
         buffer.tell(),
         display_mode,
+        eink_optimization_preset,
     )
     return buffer.getvalue()
