@@ -111,7 +111,6 @@ app = Starlette(
         Route("/webhook", plex_webhook_trigger, methods=["POST"]),
         Route("/restore", restore_trigger, methods=["POST"]),
         Route("/show-image", show_image_trigger, methods=["POST"]),
-        Route("/healthz", health, methods=["GET"]),
         Route("/health", health, methods=["GET"]),
     ]
 )
