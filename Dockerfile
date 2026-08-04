@@ -15,10 +15,6 @@ RUN apt update && apt install -y bluetooth
 COPY requirements.txt /
 RUN pip install --no-cache-dir -r /requirements.txt
 
-
-COPY pybloomin8/ /home/site/wwwroot/pybloomin8/
-COPY webhook_helpers/ /home/site/wwwroot/webhook_helpers/
-
-COPY function_app.py host.json /home/site/wwwroot/
+COPY pybloomin8/ webhook_helpers/ function_app.py host.json /home/site/wwwroot/
 
 VOLUME /home/site/wwwroot/bloomin8-state
