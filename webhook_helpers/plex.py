@@ -6,12 +6,13 @@ from urllib.parse import quote
 import httpx
 
 from .config import (
-    PLEX_SERVER_URL,
-    PLEX_TOKEN,
+    WEBHOOK_PLEX_SERVER_URL,
+    WEBHOOK_PLEX_TOKEN,
     POSTER_DOWNLOAD_TIMEOUT_SECONDS,
     POSTER_MAX_BYTES,
     REQUIRE_LOCAL_PLAYER,
     REQUIRE_OWNER_PLAYBACK,
+    WEBHOOK_SKIP_TRACKS,
 )
 
 # Filename labels used when falling back to a parent/grandparent item.
@@ -33,21 +34,25 @@ def should_skip_webhook(payload: dict) -> bool:
         logging.info("Skipping webhook: event '%s' is not media.play/media.stop.", payload.get("event"))
         return True
 
+    if WEBHOOK_SKIP_TRACKS and (payload.get("Metadata") or {}).get("type") == "track":
+        logging.info("Skipping webhook: track playback is disabled.")
+        return True
+
     return False
 
 
 def build_thumb_url(library_partial_path: str | None) -> str | None:
     # Resolves a Plex-relative thumb path (e.g. "/library/metadata/123/thumb/456")
-    # into a fully qualified URL against PLEX_SERVER_URL, authenticated with PLEX_TOKEN.
-    if not library_partial_path or not PLEX_SERVER_URL:
+    # into a fully qualified URL against WEBHOOK_PLEX_SERVER_URL, authenticated with WEBHOOK_PLEX_TOKEN.
+    if not library_partial_path or not WEBHOOK_PLEX_SERVER_URL:
         return None
 
-    url = f"{PLEX_SERVER_URL}{library_partial_path}"
-    if not PLEX_TOKEN:
+    url = f"{WEBHOOK_PLEX_SERVER_URL}{library_partial_path}"
+    if not WEBHOOK_PLEX_TOKEN:
         return url
 
     # Metadata paths from Plex never carry a query string of their own, so we can always append token once escaped.
-    return f"{url}?X-Plex-Token={quote(PLEX_TOKEN, safe='')}"
+    return f"{url}?X-Plex-Token={quote(WEBHOOK_PLEX_TOKEN, safe='')}"
 
 
 def extract_media_poster(metadata: dict) -> tuple[str, str]:

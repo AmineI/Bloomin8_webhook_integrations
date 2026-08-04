@@ -1,20 +1,20 @@
 services:
-  bloomin8-webhook:
+  bloomin8-azfunc-webhook:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.azure-functions
     restart: unless-stopped
     # BLE wake goes through the host's BlueZ daemon; the frame itself is reached over the LAN.
     #network_mode: host
     ports:
-      - 57071:80
+      - 7071:80
     volumes:
       # bleak drives the host's bluetoothd over the D-Bus system bus, not the HCI device.
       - /run/dbus:/run/dbus:ro
       # Saved frame state must outlive the container or restore has nothing to return to.
       - ./bloomin8-state:/home/site/wwwroot/bloomin8-state
 
-    # BLOOMIN8_MAC, BLOOMIN8_IP, PLEX_SERVER_URL and PLEX_TOKEN live here.
+    # BLOOMIN8_MAC, BLOOMIN8_IP, WEBHOOK_PLEX_SERVER_URL and WEBHOOK_PLEX_TOKEN live here.
     env_file:
       - .env
 
@@ -25,11 +25,14 @@ services:
       BLOOMIN8_MAC: ${BLOOMIN8_MAC}
       BLOOMIN8_IP: ${BLOOMIN8_IP}
       BLOOMIN8_MANAGED_GALLERIES: ${BLOOMIN8_MANAGED_GALLERIES}
-      PLEX_SERVER_URL: ${PLEX_SERVER_URL}
-      PLEX_TOKEN: ${PLEX_TOKEN}
-      PROCESS_OWNER_PLAYBACK_ONLY: ${PROCESS_OWNER_PLAYBACK_ONLY:-true}
-      PROCESS_LOCAL_PLAYBACK_ONLY: ${PROCESS_LOCAL_PLAYBACK_ONLY:-true}
-      PLEX_OVERWRITE_STATE: ${PLEX_OVERWRITE_STATE:-false}
-      PLEX_ACTION_ONLY_IF_IDLE: ${PLEX_ACTION_ONLY_IF_IDLE:-true}
-      RESTORE_DEBOUNCE_SECONDS: ${RESTORE_DEBOUNCE_SECONDS:-20}
-      SHOW_DEBOUNCE_SECONDS: ${SHOW_DEBOUNCE_SECONDS:-5}
+      WEBHOOK_PLEX_SERVER_URL: ${WEBHOOK_PLEX_SERVER_URL}
+      WEBHOOK_PLEX_TOKEN: ${WEBHOOK_PLEX_TOKEN}
+      WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY: ${WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY:-true}
+      WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY: ${WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY:-true}
+      WEBHOOK_SKIP_TRACKS: ${WEBHOOK_SKIP_TRACKS:-false}
+      WEBHOOK_DEFAULT_OVERWRITE_STATE: ${WEBHOOK_DEFAULT_OVERWRITE_STATE:-false}
+      WEBHOOK_ACTION_ONLY_IF_IDLE: ${WEBHOOK_ACTION_ONLY_IF_IDLE:-true}
+      WEBHOOK_RESTORE_DEBOUNCE_SECONDS: ${WEBHOOK_RESTORE_DEBOUNCE_SECONDS:-20}
+      WEBHOOK_SHOW_DEBOUNCE_SECONDS: ${WEBHOOK_SHOW_DEBOUNCE_SECONDS:-5}
+      WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS: ${WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS:-0}
+

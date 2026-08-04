@@ -1,4 +1,5 @@
-# Build from the repository root: docker build .
+# Build from the repository root:
+#   docker build -f Dockerfile.azure-functions .
 
 FROM mcr.microsoft.com/azure-functions/python:4-python3.12
 
@@ -10,10 +11,9 @@ ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
 # The stop debounce lives in a module global, so every webhook must reach the same worker.
 ENV FUNCTIONS_WORKER_PROCESS_COUNT=1
 
-
 RUN apt update && apt install -y bluetooth
-COPY requirements.txt /
-RUN pip install --no-cache-dir -r /requirements.txt
+COPY requirements.txt azure-functions-requirements.txt /
+RUN python -m pip install --no-cache-dir -r /azure-functions-requirements.txt
 
 COPY pybloomin8/ webhook_helpers/ function_app.py host.json /home/site/wwwroot/
 

@@ -1,15 +1,32 @@
-"""Helpers for reading parameters and uploads off an HttpRequest."""
+"""Helpers for reading query parameters and uploads off webhook requests."""
 
+from collections.abc import Mapping
 from pathlib import PurePosixPath
-
-import azure.functions as func
-
-
-def param_flag(req: func.HttpRequest, name: str) -> bool:
-    return (req.params.get(name) or "").strip().lower() in ("true", "1", "yes")
+from typing import Protocol
 
 
-def extract_uploaded_image(req: func.HttpRequest) -> tuple[bytes, str | None]:
+class UploadedFile(Protocol):
+    filename: str
+
+    def read(self) -> bytes: ...
+
+
+class UploadedFiles(Protocol):
+    def get(self, name: str) -> UploadedFile | None: ...
+
+
+class UploadRequest(Protocol):
+    headers: Mapping[str, str]
+    files: UploadedFiles
+
+    def get_body(self) -> bytes: ...
+
+
+def param_flag(params: Mapping[str, str], name: str) -> bool:
+    return (params.get(name) or "").strip().lower() in ("true", "1", "yes")
+
+
+def extract_uploaded_image(req: UploadRequest) -> tuple[bytes, str | None]:
     """Return the posted image bytes and the client-supplied filename, if any."""
     content_type = (req.headers.get("Content-Type") or "").lower()
 
@@ -22,7 +39,7 @@ def extract_uploaded_image(req: func.HttpRequest) -> tuple[bytes, str | None]:
     return req.get_body(), None
 
 
-def resolve_image_name(req: func.HttpRequest, uploaded_filename: str | None) -> str | None:
-    name = (req.params.get("name") or "").strip()
+def resolve_image_name(params: Mapping[str, str], uploaded_filename: str | None) -> str | None:
+    name = (params.get("name") or "").strip()
     # PurePosixPath also strips Windows separators once backslashes are normalised.
     return name or PurePosixPath((uploaded_filename or "").replace("\\", "/")).stem or None

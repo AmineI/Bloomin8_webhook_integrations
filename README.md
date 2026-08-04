@@ -102,6 +102,8 @@ the modes differ the most.
 docker compose up --build
 ```
 
+Compose builds the Azure Functions image from `Dockerfile.azure-functions`.
+
 The container publishes port `57071`. Point the Plex webhook at
 `http://<host>:57071/api/plex_webhook_trigger`.
 
@@ -112,6 +114,32 @@ The container publishes port `57071`. Point the Plex webhook at
 | `POST /api/plex_webhook_trigger` | Plex webhook target: shows the poster on play, restores on stop. | — |
 | `POST /api/http_show_image_trigger` | Displays an image sent as the raw body or as a multipart `image` field (max 16 MB). | `name`, `gallery`, `display_mode`, `overwrite_state` |
 | `POST /api/http_restore_trigger` | Restores the saved state immediately, bypassing the stop debounce. | `overwrite_state` |
+
+### Manual Webhooks
+
+`restore_trigger` restores the frame state saved by the previous temporary display. Use
+`POST /api/http_restore_trigger` on the Azure Functions host, or `POST /restore` on the
+plain Python server. Add `?overwrite_state=true` to force the restore even when the
+frame is currently showing an image this workflow did not put there.
+
+```bash
+curl -X POST "http://<host>:57071/api/http_restore_trigger"
+curl -X POST "http://<host>:57071/api/http_restore_trigger?overwrite_state=true"
+```
+
+`show_image_trigger` displays an image supplied either as the raw request body or as a
+multipart form field named `image`. Use `POST /api/http_show_image_trigger` on the Azure
+Functions host, or `POST /show-image` on the plain Python server. Query parameters are:
+`name`, `gallery`, `display_mode` and `overwrite_state`.
+
+```bash
+curl -X POST "http://<host>:57071/api/http_show_image_trigger?name=cover.jpg&gallery=media" \
+  --data-binary "@cover.jpg" \
+  -H "Content-Type: image/jpeg"
+
+curl -X POST "http://<host>:57071/api/http_show_image_trigger?gallery=media&display_mode=cover" \
+  -F "image=@cover.jpg"
+```
 
 `name` becomes a filename on the frame, so anything outside letters, digits, dots, dashes
 and underscores is replaced with an underscore. It falls back to the upload filename, and
@@ -128,12 +156,14 @@ gallery allowlist. The webhook adds:
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `PLEX_SERVER_URL` | — | Base URL of the Plex server, used to download posters. |
-| `PLEX_TOKEN` | — | Plex [authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). |
-| `PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where `Account.owner` is false. |
-| `PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where `Player.local` is false. |
-| `PLEX_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image it did not set. |
-| `PLEX_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
-| `SHOW_DEBOUNCE_SECONDS` | `5` | Wait before uploading, so skipping between items replaces the pending image instead of sending one slow upload per event. |
-| `RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |
+| `WEBHOOK_PLEX_SERVER_URL` | — | Base URL of the Plex server, used to download posters. |
+| `WEBHOOK_PLEX_TOKEN` | — | Plex [authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). |
+| `WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where `Account.owner` is false. |
+| `WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where `Player.local` is false. |
+| `WEBHOOK_SKIP_TRACKS` | `false` | Ignore track playback events. |
+| `WEBHOOK_DEFAULT_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image it did not set. |
+| `WEBHOOK_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
+| `WEBHOOK_SHOW_DEBOUNCE_SECONDS` | `5` | Wait before uploading, so skipping between items replaces the pending image instead of sending one slow upload per event. |
+| `WEBHOOK_RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |
+| `WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS` | `0` | Minimum time between pre-debounce BLE wake attempts; `0` wakes for every webhook action. The final show/restore action still performs its normal wake. |
 | `TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode for music tracks, whose square album art does not fill the panel. Posters always use `cover`. |

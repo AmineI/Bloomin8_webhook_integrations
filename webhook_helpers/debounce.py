@@ -43,6 +43,7 @@ async def _run_later(action: Callable[[], Awaitable[object]], delay: int) -> obj
     global _pending
 
     await asyncio.sleep(delay)
+
     # Past the window the action is committed; a later event must not interrupt it.
     _pending = None
 

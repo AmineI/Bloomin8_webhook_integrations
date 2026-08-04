@@ -1,4 +1,4 @@
-"""Environment-driven configuration for the Azure Function app."""
+"""Environment-driven configuration for the webhook hosts."""
 
 import os
 
@@ -17,18 +17,20 @@ def env_flag(name: str, default: str = "true") -> bool:
 
 TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout"))
 
-PLEX_SERVER_URL = os.getenv("PLEX_SERVER_URL", "").strip().rstrip("/")
-PLEX_TOKEN = os.getenv("PLEX_TOKEN", "")
-REQUIRE_OWNER_PLAYBACK = env_flag("PROCESS_OWNER_PLAYBACK_ONLY", "true")
-REQUIRE_LOCAL_PLAYER = env_flag("PROCESS_LOCAL_PLAYBACK_ONLY", "true")
+WEBHOOK_PLEX_SERVER_URL = os.getenv("WEBHOOK_PLEX_SERVER_URL", "").strip().rstrip("/")
+WEBHOOK_PLEX_TOKEN = os.getenv("WEBHOOK_PLEX_TOKEN", "")
+REQUIRE_OWNER_PLAYBACK = env_flag("WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY", "true")
+REQUIRE_LOCAL_PLAYER = env_flag("WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY", "true")
+WEBHOOK_SKIP_TRACKS = env_flag("WEBHOOK_SKIP_TRACKS", "false")
 # Lets the Plex webhook restore an image to a frame showing an image it did not put there.
-PLEX_OVERWRITE_STATE = env_flag("PLEX_OVERWRITE_STATE", "false")
+WEBHOOK_DEFAULT_OVERWRITE_STATE = env_flag("WEBHOOK_DEFAULT_OVERWRITE_STATE", "false")
 # Skips the poster instead of queuing behind whatever the frame is already doing.
-PLEX_ACTION_ONLY_IF_IDLE = env_flag("PLEX_ACTION_ONLY_IF_IDLE", "true")
+WEBHOOK_ACTION_ONLY_IF_IDLE = env_flag("WEBHOOK_ACTION_ONLY_IF_IDLE", "true")
 
 #Skipping through media would otherwise send a display & upload per event.
-RESTORE_DEBOUNCE_SECONDS = int(os.getenv("RESTORE_DEBOUNCE_SECONDS", "25"))
-SHOW_DEBOUNCE_SECONDS = int(os.getenv("SHOW_DEBOUNCE_SECONDS", "5"))
+WEBHOOK_RESTORE_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_RESTORE_DEBOUNCE_SECONDS", "25"))
+WEBHOOK_SHOW_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_SHOW_DEBOUNCE_SECONDS", "5"))
+WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS", "60"))
 
 POSTER_DOWNLOAD_TIMEOUT_SECONDS = 20.0
 POSTER_MAX_BYTES = 16 * 1024 * 1024
