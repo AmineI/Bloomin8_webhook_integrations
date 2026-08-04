@@ -12,7 +12,9 @@ RUN apt update && apt install -y bluetooth
 COPY requirements.txt server-requirements.txt /tmp/
 RUN python -m pip install --no-cache-dir -r /tmp/server-requirements.txt
 
-COPY pybloomin8/ webhook_helpers/ server.py /app/
+COPY pybloomin8/ /app/pybloomin8/
+COPY webhook_helpers/ /app/webhook_helpers/
+COPY webhook_server.py /app/
 
 EXPOSE 7072
-CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "7072"]
+CMD ["uvicorn", "webhook_server:app", "--host", "0.0.0.0", "--port", "7072"]
