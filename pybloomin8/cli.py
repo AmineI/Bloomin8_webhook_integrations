@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from .api import Bloomin8Api
 from .image import DISPLAY_MODES
-from .settings import Settings, resolve_ip
+from .settings import Settings, configure_request_logging, resolve_ip
 from .workflow import TemporaryImageWorkflow
 
 
@@ -155,6 +155,7 @@ def main() -> None:
             display_mode=getattr(args, "display_mode", None),
             only_if_idle=getattr(args, "only_if_idle", None),
         )
+        configure_request_logging(settings.debug_requests)
     except ValueError as error:
         parser.error(str(error))
 

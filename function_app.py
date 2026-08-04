@@ -14,7 +14,8 @@ app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
 async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode) -> bool:
     """Download the poster from Plex and display it, unless the frame is busy."""
-    logging.info("Downloading poster %s: %s", poster_filename, poster_url)
+    # The query string carries X-Plex-Token, which should not reach the logs.
+    logging.info("Downloading poster %s: %s", poster_filename, poster_url.split("?")[0])
     poster_data = await plex.download_poster(poster_url)
     return await pybloomin8.temp_show_image_from_bytes(
         poster_data,
@@ -33,7 +34,7 @@ async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: 
 # but it is too small to be used in our scenario.
 
 @app.route(route="plex_webhook_trigger", methods=["POST"])
-async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
+async def http_plex_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
     logging.info("Received Plex webhook request.")
 
     try:
@@ -83,7 +84,7 @@ async def http_webhook_trigger(req: func.HttpRequest) -> func.HttpResponse:
 
 @app.route(route="http_restore_trigger", methods=["POST"])
 async def http_restore_trigger(req: func.HttpRequest) -> func.HttpResponse:
-    """Restore the saved frame state now, bypassing the stop debounce."""
+    """Restore the saved frame state manually."""
     # Forces the restore even when the frame shows an image the workflow did not put there.
     overwrite_state = request.param_flag(req, "overwrite_state")
     logging.info("Restore requested over HTTP (overwrite_state=%s).", overwrite_state)
@@ -111,10 +112,10 @@ async def http_show_image_trigger(req: func.HttpRequest) -> func.HttpResponse:
             status_code=400,
         )
 
-    settings = pybloomin8.get_settings()
+    frame_settings = pybloomin8.get_settings()
 
     try:
-        gallery = settings.resolve_gallery(req.params.get("gallery"), settings.managed_galleries)
+        gallery = settings.resolve_gallery(req.params.get("gallery"), frame_settings.managed_galleries)
         display_mode = settings.resolve_display_mode(req.params.get("display_mode"))
     except ValueError as error:
         return func.HttpResponse(str(error), status_code=400)

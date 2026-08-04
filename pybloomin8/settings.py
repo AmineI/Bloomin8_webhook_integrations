@@ -5,6 +5,7 @@ API argument) first, then the environment variable, then the package default.
 """
 
 import os
+import logging
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import cast
@@ -82,6 +83,23 @@ def resolve_only_if_idle(override: bool | None = None) -> bool:
     return raw.strip().lower() in ("true", "1", "yes")
 
 
+def resolve_debug_requests(override: bool | None = None) -> bool:
+    """Resolve whether HTTP client debug logs should be enabled."""
+    if override is not None:
+        return override
+    raw = env_value("BLOOMIN8_DEBUG_REQUESTS")
+    if raw is None:
+        return False
+    return raw.strip().lower() in ("true", "1", "yes")
+
+
+def configure_request_logging(debug_requests: bool) -> None:
+    """Set HTTP client logger verbosity across common request stacks."""
+    level = logging.INFO if debug_requests else logging.WARNING
+    logging.getLogger("requests").setLevel(level)
+
+
+
 @dataclass(frozen=True)
 class Settings:
     """Frame configuration resolved from overrides and the environment."""
@@ -92,6 +110,7 @@ class Settings:
     gallery: str
     display_mode: DisplayMode
     only_if_idle: bool
+    debug_requests: bool
 
     @classmethod
     def resolve(
@@ -103,6 +122,7 @@ class Settings:
         gallery: str | None = None,
         display_mode: str | None = None,
         only_if_idle: bool | None = None,
+        debug_requests: bool | None = None,
     ) -> "Settings":
         """Build settings, letting the given overrides win over the environment."""
         resolved_mgd_galleries = resolve_managed_galleries(managed_galleries)
@@ -113,10 +133,13 @@ class Settings:
             gallery=resolve_gallery(gallery, resolved_mgd_galleries),
             display_mode=resolve_display_mode(display_mode),
             only_if_idle=resolve_only_if_idle(only_if_idle),
+            debug_requests=resolve_debug_requests(debug_requests),
         )
 
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return the process-wide settings, reading the environment once."""
-    return Settings.resolve()
+    settings = Settings.resolve()
+    configure_request_logging(settings.debug_requests)
+    return settings
