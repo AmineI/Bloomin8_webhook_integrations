@@ -34,15 +34,15 @@ class TemporaryImageWorkflow:
     async def __aexit__(self, *_: object) -> None:
         await self.api.close()
 
-    async def wake_and_connect(self) -> None:
+    async def wake_and_connect(self, abort_when_busy: bool = False) -> None:
         """Wake the frame over BLE and allow Wi-Fi startup to begin."""
         await wake_device(self.mac_address)
         try:
-            await self.api.wait_until_ready()
+            await self.api.wait_until_ready(abort_when_busy=abort_when_busy)
         except RuntimeError:
             log.warning("Device did not respond after first BLE wake — retrying wake signal")
             await wake_device(self.mac_address)
-            await self.api.wait_until_ready()
+            await self.api.wait_until_ready(abort_when_busy=abort_when_busy)
 
     async def replace_image_path(
         self,
@@ -51,14 +51,17 @@ class TemporaryImageWorkflow:
         overwrite_state: bool = False,
         dither: int | None = None,
         display_mode: DisplayMode = "cover",
+        only_if_idle: bool = False,
+    ) -> bool:
         """Save the current state and display a temporary image read from disk."""
-        await self.replace_image_bytes(
+        return await self.replace_image_bytes(
             image_path.read_bytes(),
             gallery,
             image_path.stem,
             overwrite_state=overwrite_state,
             dither=dither,
             display_mode=display_mode,
+            only_if_idle=only_if_idle,
         )
 
     async def replace_image_bytes(
@@ -69,12 +72,20 @@ class TemporaryImageWorkflow:
         overwrite_state: bool = False,
         dither: int | None = None,
         display_mode: DisplayMode = "cover",
+        only_if_idle: bool = False,
+    ) -> bool:
         """Save the current state and display a temporary image held in memory.
 
         `name` identifies the image on the frame, so reusing it skips the re-upload.
+        With `only_if_idle`, the frame is left untouched when it reports it is busy
+        with another task. Returns whether the frame now shows the requested image.
         """
         log.info("=== Upload temporary image ===")
-        await self.wake_and_connect()
+        try:
+            await self.wake_and_connect(abort_when_busy=only_if_idle)
+        except BlockingIOError as error:
+            log.info("Skipping show: %s", error)
+            return False
         current_state = await self.api.get_device_info()
 
         log.info("  Current image : %s", current_state.get("image"))
@@ -88,17 +99,18 @@ class TemporaryImageWorkflow:
         # Only play_type 0 holds a still image; under slideshow modes the match is transient.
         if current_state.get("image") == target_bloomin8_path and int(current_state.get("play_type", 0)) == 0:
             log.info("Skipping refresh: Image was already displayed %s", target_bloomin8_path)
-            return
+            return True
 
         self.state_backup.backup_current_state(current_state, overwrite_state)
 
 
         if await self.api.image_exists(bloomin8_filename, gallery):
             await self.api.show_image(bloomin8_filename, gallery, dither=dither)
-            return
+            return True
 
         prepared_image = prepare_image(image_data, int(current_state["width"]), int(current_state["height"]), display_mode=display_mode)
         await self.api.upload_and_show(prepared_image, bloomin8_filename, gallery, dither=dither)
+        return True
 
     async def restore(self, overwrite_state: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
