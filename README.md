@@ -17,9 +17,12 @@ The repository contains two things:
 ## Getting started
 
 ```bash
-pip install -e .
+python -m pip install -e .
 cp .env.example .env   # then fill in your frame's MAC and IP
 ```
+
+The Azure Functions and plain Python webhook hosts each have their own extra
+requirements files: `azure-functions-requirements.txt` and `server-requirements.txt`.
 
 Every command reads its defaults from `.env` (or the process environment), so most of the
 time you only need to pass the image.
@@ -95,6 +98,26 @@ the modes differ the most.
 ---
 
 ## Plex webhook function app
+
+### Plain Python server
+
+For hosts where the Azure Functions runtime is awkward, install the same requirements and
+run the webhook as a regular ASGI server:
+
+```bash
+python -m pip install -r server-requirements.txt
+uvicorn webhook_server:app --host 0.0.0.0 --port 7072
+```
+
+Or build the Starlette server image:
+
+```bash
+docker build -f Dockerfile.starlette -t bloomin8-webhook-starlette .
+docker run --rm --env-file .env -p 7072:7072 bloomin8-webhook-starlette
+```
+
+The server exposes the same Azure-style routes documented below, plus short aliases:
+`POST /webhook`, `POST /restore`, `POST /show-image` and `GET /healthz`.
 
 ### Run it
 
