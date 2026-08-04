@@ -9,8 +9,6 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import cast
 
-from dotenv import load_dotenv
-
 from .constants import DEFAULT_MANAGED_GALLERIES, DEFAULT_DISPLAY_MODE, DEFAULT_ONLY_IF_IDLE
 from .image import DISPLAY_MODES, DisplayMode
 
@@ -107,7 +105,6 @@ class Settings:
         only_if_idle: bool | None = None,
     ) -> "Settings":
         """Build settings, letting the given overrides win over the environment."""
-        load_dotenv()
         resolved_mgd_galleries = resolve_managed_galleries(managed_galleries)
         return cls(
             mac=resolve_mac(mac),
