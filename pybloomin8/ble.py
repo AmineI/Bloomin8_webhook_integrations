@@ -28,7 +28,7 @@ async def wake_device(mac_address: str, retries: int = 3) -> None:
             )
             device = await BleakScanner.find_device_by_address(
                 mac_address,
-                timeout=15.0,
+                timeout=25.0,
             )
             if device is None:
                 raise RuntimeError(f"Device {mac_address} not found")

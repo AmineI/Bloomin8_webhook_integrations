@@ -41,10 +41,10 @@ async def temp_show_image_from_bytes(
         )
 
 
-async def restore(overwrite_state: bool = False) -> None:
+async def restore(overwrite_state: bool = False,skip_wake=False) -> None:
     """Restore the frame state saved before the last show."""
     settings = get_settings()
     async with TemporaryImageWorkflow(
         settings.mac, settings.ip, settings.managed_galleries
     ) as workflow:
-        await workflow.restore(overwrite_state=overwrite_state)
+        await workflow.restore(overwrite_state=overwrite_state, skip_wake=skip_wake)

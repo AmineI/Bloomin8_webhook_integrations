@@ -125,10 +125,11 @@ class TemporaryImageWorkflow:
         await self.api.upload_and_show(prepared_image, bloomin8_filename, gallery, dither=dither)
         return True
 
-    async def restore(self, overwrite_state: bool = False) -> None:
+    async def restore(self, overwrite_state: bool = False, skip_wake: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
         log.info("=== Restore previous state (overwrite_state=%s) ===", overwrite_state)
-        await self.wake_and_connect()
+        if not skip_wake:
+            await self.wake_and_connect()
         current_state = await self.api.get_device_info()
         if not is_managed_image(current_state, self.managed_galleries) and not overwrite_state :
             raise RuntimeError(

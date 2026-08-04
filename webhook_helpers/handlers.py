@@ -12,6 +12,7 @@ from pybloomin8.image import DisplayMode
 from . import config, debounce, plex
 
 _last_wake_started_at: float | None = None
+WARM_WAKE_BEFORE_RESTORE_DEBOUNCE = config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS > 5
 
 
 def _log_ble_wake_result(task: asyncio.Task[None]) -> None:
@@ -57,33 +58,34 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        _schedule_ble_wake()
+        if WARM_WAKE_BEFORE_RESTORE_DEBOUNCE:
+            _schedule_ble_wake()
         restore_task = debounce.schedule(
-            lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE),
-            config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,
+            lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE, skip_wake=WARM_WAKE_BEFORE_RESTORE_DEBOUNCE),
+            config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS, 
         )
         return await debounce.wait_for_result(restore_task, "Restore")
+    else:
+        metadata = payload.get("Metadata") or {}
+        try:
+            poster_plex_partial_path, poster_filename = plex.extract_media_poster(metadata)
+        except LookupError as error:
+            logging.warning("%s; frame left unchanged.", error)
+            return str(error), 404
 
-    metadata = payload.get("Metadata") or {}
-    try:
-        poster_plex_partial_path, poster_filename = plex.extract_media_poster(metadata)
-    except LookupError as error:
-        logging.warning("%s; frame left unchanged.", error)
-        return str(error), 404
+        poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE if metadata.get("type") == "track" else "cover"
 
-    poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE if metadata.get("type") == "track" else "cover"
+        poster_full_url = plex.build_thumb_url(poster_plex_partial_path)
+        if not poster_full_url:
+            logging.warning("WEBHOOK_PLEX_SERVER_URL is not configured; frame left unchanged.")
+            return "WEBHOOK_PLEX_SERVER_URL is not configured.", 500
 
-    poster_full_url = plex.build_thumb_url(poster_plex_partial_path)
-    if not poster_full_url:
-        logging.warning("WEBHOOK_PLEX_SERVER_URL is not configured; frame left unchanged.")
-        return "WEBHOOK_PLEX_SERVER_URL is not configured.", 500
-
-    _schedule_ble_wake()
-    show_task = debounce.schedule(
-        lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode),
-        config.WEBHOOK_SHOW_DEBOUNCE_SECONDS,
-    )
-    return await debounce.wait_for_result(show_task, "Display")
+        _schedule_ble_wake()
+        show_task = debounce.schedule(
+            lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode),
+            config.WEBHOOK_SHOW_DEBOUNCE_SECONDS,
+        )
+        return await debounce.wait_for_result(show_task, "Display")
 
 
 async def handle_restore(overwrite_state: bool) -> tuple[str, int]:
