@@ -7,7 +7,7 @@ from typing import Any
 
 from .api import Bloomin8Api, gallery_image_path, safe_filename
 from .ble import wake_device
-from .constants import MANAGED_GALLERIES, STATE_READY_DELAY_SECONDS
+from .constants import STATE_READY_DELAY_SECONDS
 from .image import DisplayMode, prepare_image
 from .state import DisplayStateStore, is_managed_image
 
@@ -21,7 +21,7 @@ class TemporaryImageWorkflow:
         self,
         mac_address: str,
         ip_address: str,
-        managed_galleries: tuple[str, ...] = MANAGED_GALLERIES,
+        managed_galleries: tuple[str, ...],
     ) -> None:
         self.mac_address = mac_address
         self.api = Bloomin8Api(ip_address)

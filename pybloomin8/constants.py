@@ -11,7 +11,12 @@ SHOW_RETRY_ATTEMPTS = 3
 HTTP_REQUEST_TIMEOUT_SECONDS = 10
 HTTP_UPLOAD_TIMEOUT_SECONDS = 45
 
-MANAGED_GALLERIES = ("shows", "games")# deviceInfo also reports volatile values (battery, wifi...), so only the fields a restore
+"""Default settings values for the Bloomin8 modules."""
+DEFAULT_MANAGED_GALLERIES = ("temp",)
+DEFAULT_DISPLAY_MODE = "cover"
+DEFAULT_ONLY_IF_IDLE = False
+
+# deviceInfo also reports volatile values (battery, wifi...), so only the fields a restore
 # replays can decide whether two states are the same.
 RESTORE_STATE_KEYS = (
     "image",

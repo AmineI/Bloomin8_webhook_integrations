@@ -8,148 +8,117 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from .api import Bloomin8Api
-from .image import FIT_MODES
-from .settings import env_value, parse_managed_galleries
+from .image import DISPLAY_MODES
+from .settings import Settings, resolve_ip
 from .workflow import TemporaryImageWorkflow
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command-line argument parser."""
+    """Build the command-line argument parser.
+
+    Options default to None so that anything left unset is resolved from the
+    environment by Settings, keeping one resolution order for CLI and service.
+    """
+    ip_option = argparse.ArgumentParser(add_help=False)
+    ip_option.add_argument("--ip", help="Device LAN IP (default: BLOOMIN8_IP)")
+
+    frame_options = argparse.ArgumentParser(add_help=False, parents=[ip_option])
+    frame_options.add_argument("--mac", help="BLE MAC address (default: BLOOMIN8_MAC)")
+    frame_options.add_argument(
+        "--managed-galleries",
+        help=(
+            "Comma-separated gallery allowlist for this command "
+            "(for example: media,posters,temp). Default: BLOOMIN8_MANAGED_GALLERIES."
+        ),
+    )
+
     parser = argparse.ArgumentParser(
         description="Show a temporary image or restore the previous display."
     )
     commands = parser.add_subparsers(dest="command", required=True)
 
-    show_parser = commands.add_parser("show", help="Display an image after saving the current one")
-    _add_mac_argument(show_parser)
-    _add_ip_argument(show_parser)
+    show_parser = commands.add_parser(
+        "show",
+        parents=[frame_options],
+        help="Display an image after saving the current one",
+    )
     show_parser.add_argument("--image", required=True, type=Path, help="Image path")
     show_parser.add_argument(
         "--gallery",
-        dest="gallery",
-        required=True,
-        help="Persistent destination gallery on the frame",
+        help="Persistent destination gallery on the frame (default: BLOOMIN8_GALLERY)",
     )
-    _add_managed_galleries_argument(show_parser)
     show_parser.add_argument(
-        "--overwrite-state",
-        action="store_true",
-        default=False,
-        help="Overwrite current saved state",
+        "--overwrite-state", action="store_true", help="Overwrite current saved state"
     )
-    
+    show_parser.add_argument(
+        "--only-if-idle",
+        action=argparse.BooleanOptionalAction,
+        help=(
+            "Cancel instead of waiting when the frame is already busy "
+            "(default: BLOOMIN8_ONLY_IF_IDLE, else off)."
+        ),
+    )
     show_parser.add_argument(
         "--dither",
         type=int,
-        default=None,
         help="Optional dither algorithm : 0 for Floyd-Steinberg (often better), 1 for faster JJN (often faster).",
     )
     show_parser.add_argument(
-        "--fit-mode",
-        dest="fit_mode",
-        choices=list(FIT_MODES),
-        default="cover",
-        help="How to resize the image: cover (default, frame crops the overflow), fit (center-crop to panel size), or stretch.",
+        "--display-mode",
+        choices=list(DISPLAY_MODES),
+        help="How to resize the image, described in the README (default: BLOOMIN8_DISPLAY_MODE, else cover).",
     )
 
     restore_parser = commands.add_parser(
         "restore",
+        parents=[frame_options],
         help="Restore the previous image displayed before the last set of show commands",
     )
-    _add_mac_argument(restore_parser)
-    _add_ip_argument(restore_parser)
-    _add_managed_galleries_argument(restore_parser)
     restore_parser.add_argument(
         "--overwrite-state",
         action="store_true",
-        default=False,
         help=(
             "Allow restore even when current display is outside managed galleries. "
             "By default restore is blocked to avoid overwriting non-managed content."
         ),
     )
 
-    sleep_parser = commands.add_parser("sleep", help="Put the frame into sleep mode")
-    _add_ip_argument(sleep_parser)
+    commands.add_parser("sleep", parents=[ip_option], help="Put the frame into sleep mode")
 
     delete_gallery_parser = commands.add_parser(
-        "delete-gallery", help="Delete a gallery and all images within it"
+        "delete-gallery",
+        parents=[frame_options],
+        help="Delete a gallery and all images within it",
     )
-    _add_mac_argument(delete_gallery_parser)
-    _add_ip_argument(delete_gallery_parser)
-    _add_managed_galleries_argument(delete_gallery_parser)
     delete_gallery_parser.add_argument(
-        "--gallery",
-        required=True,
-        help="Name of the gallery to delete",
+        "--gallery", required=True, help="Name of the gallery to delete"
     )
     return parser
 
 
-
-def _add_managed_galleries_argument(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument(
-        "--managed-galleries",
-        default=None,
-        help=(
-            "Comma-separated gallery allowlist override for this command "
-            "(for example: shows,posters). Overrides BLOOMIN8_MANAGED_GALLERIES."
-        ),
-    )
+async def sleep_frame(ip: str) -> None:
+    """Send the frame to sleep."""
+    async with Bloomin8Api(ip) as api:
+        await api.sleep()
 
 
-
-def _add_mac_argument(parser: argparse.ArgumentParser) -> None:
-    env_mac = env_value("BLOOMIN8_MAC", "MAC")
-    parser.add_argument(
-        "--mac",
-        default=env_mac,
-        required=env_mac is None,
-        help="BLE MAC address (or set BLOOMIN8_MAC in .env)",
-    )
-
-
-def _add_ip_argument(parser: argparse.ArgumentParser) -> None:
-    env_ip = env_value("BLOOMIN8_IP", "IP")
-    parser.add_argument(
-        "--ip",
-        default=env_ip,
-        required=env_ip is None,
-        help="Device LAN IP (or set BLOOMIN8_IP in .env)",
-    )
-
-
-def resolve_managed_galleries(args: argparse.Namespace) -> tuple[str, ...]:
-    managed_galleries_input = getattr(args, "managed_galleries", None) or env_value(
-        "BLOOMIN8_MANAGED_GALLERIES",
-    )
-    return parse_managed_galleries(managed_galleries_input)
-
-
-async def run_from_args(args: argparse.Namespace) -> None:
+async def run_from_args(args: argparse.Namespace, settings: Settings) -> None:
     """Run the workflow represented by parsed CLI arguments."""
-    if args.command == "sleep":
-        async with Bloomin8Api(args.ip) as api:
-            await api.sleep()
-        return
-
-    managed_galleries = resolve_managed_galleries(args)
-
-    if args.command == "delete-gallery":
-        async with TemporaryImageWorkflow(args.mac, args.ip, managed_galleries) as workflow:
-            await workflow.wake_and_connect()
-            await workflow.api.delete_gallery(args.gallery)
-        return
-
-    async with TemporaryImageWorkflow(args.mac, args.ip, managed_galleries) as workflow:
+    async with TemporaryImageWorkflow(
+        settings.mac, settings.ip, settings.managed_galleries
+    ) as workflow:
         if args.command == "show":
             await workflow.replace_image_path(
                 args.image,
-                args.gallery,
+                settings.gallery,
                 dither=args.dither,
                 overwrite_state=args.overwrite_state,
-                fit_mode=args.fit_mode,
+                display_mode=settings.display_mode,
+                only_if_idle=settings.only_if_idle,
             )
+        elif args.command == "delete-gallery":
+            await workflow.wake_and_connect()
+            await workflow.api.delete_gallery(settings.gallery)
         else:
             await workflow.restore(overwrite_state=args.overwrite_state)
 
@@ -160,27 +129,33 @@ def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
-    if args.command in ("show", "delete-gallery"):
-        try:
-            managed_galleries = resolve_managed_galleries(args)
-        except ValueError:
-            parser.error(
-                "Managed galleries override is empty. "
-                "Use --managed-galleries with comma-separated values or set BLOOMIN8_MANAGED_GALLERIES."
-            )
-
-        if args.gallery.lower() not in managed_galleries:
-            parser.error(
-                f"Unsupported gallery '{args.gallery}'. "
-                f"Allowed values: {', '.join(managed_galleries)}"
-            )
-
-    if args.command == "show" and not args.image.is_file():
-        parser.error(f"Image not found: {args.image}")
-
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s  %(levelname)-7s  %(message)s",
         datefmt="%H:%M:%S",
     )
-    asyncio.run(run_from_args(args))
+
+    if args.command == "sleep":
+        try:
+            ip = resolve_ip(args.ip)
+        except ValueError as error:
+            parser.error(str(error))
+        asyncio.run(sleep_frame(ip))
+        return
+
+    if args.command == "show" and not args.image.is_file():
+        parser.error(f"Image not found: {args.image}")
+
+    try:
+        settings = Settings.resolve(
+            mac=args.mac,
+            ip=args.ip,
+            managed_galleries=args.managed_galleries,
+            gallery=getattr(args, "gallery", None),
+            display_mode=getattr(args, "display_mode", None),
+            only_if_idle=getattr(args, "only_if_idle", None),
+        )
+    except ValueError as error:
+        parser.error(str(error))
+
+    asyncio.run(run_from_args(args, settings))
