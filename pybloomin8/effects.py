@@ -270,7 +270,7 @@ def drop_shadow(
     """Darken the backdrop with a soft shadow cast by the given foreground box."""
     blur_ratio = 0.02
     offset_ratio = 0.012
-    strength = 150
+    strength = 210
 
     width, height = backdrop.size
     left, top, right, bottom = box
