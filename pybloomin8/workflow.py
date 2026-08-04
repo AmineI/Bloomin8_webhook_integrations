@@ -100,7 +100,7 @@ class TemporaryImageWorkflow:
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
         # Only act if the current image is not the same as the target image.
-        bloomin8_filename = f"{safe_filename(name)}_{display_mode}.png"
+        bloomin8_filename = f"{safe_filename(name)}_{display_mode}.jpg"
         target_bloomin8_path = gallery_image_path(gallery, bloomin8_filename)
 
         # Only play_type 0 holds a still image; under slideshow modes the match is transient.

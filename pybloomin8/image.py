@@ -27,7 +27,7 @@ DISPLAY_MODES: tuple[DisplayMode, ...] = get_args(DisplayMode)
 def prepare_image(
     image_data: bytes, width: int, height: int, display_mode: DisplayMode = "cover"
 ) -> bytes:
-    """Convert encoded image data to a PNG sized for the frame.
+    """Convert encoded image data to a JPEG sized for the frame.
 
     display_mode:
     https://pillow.readthedocs.io/en/stable/reference/ImageOps.html#resize-relative-to-a-given-size
@@ -80,9 +80,9 @@ def prepare_image(
             raise ValueError(f"Unsupported display_mode: {display_mode}")
 
     buffer = BytesIO()
-    image.save(buffer, format="PNG")
+    image.save(buffer, format="JPEG", quality=95)
     log.info(
-        "[IMG] Prepared %d bytes -> %dx%d PNG (%d bytes) [%s]",
+        "[IMG] Prepared %d bytes -> %dx%d JPEG (%d bytes) [%s]",
         len(image_data),
         width,
         height,
