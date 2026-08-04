@@ -8,7 +8,7 @@ from typing import Any
 from .api import Bloomin8Api, gallery_image_path
 from .ble import wake_device
 from .constants import MANAGED_GALLERIES, STATE_READY_DELAY_SECONDS
-from .image import FitMode, prepare_image
+from .image import DisplayMode, prepare_image
 from .state import DisplayStateStore, is_managed_image
 
 log = logging.getLogger(__name__)
@@ -50,8 +50,7 @@ class TemporaryImageWorkflow:
         gallery: str,
         overwrite_state: bool = False,
         dither: int | None = None,
-        fit_mode: FitMode = "cover",
-    ) -> None:
+        display_mode: DisplayMode = "cover",
         """Save the current state and display a temporary image read from disk."""
         await self.replace_image_bytes(
             image_path.read_bytes(),
@@ -59,7 +58,7 @@ class TemporaryImageWorkflow:
             image_path.stem,
             overwrite_state=overwrite_state,
             dither=dither,
-            fit_mode=fit_mode,
+            display_mode=display_mode,
         )
 
     async def replace_image_bytes(
@@ -69,8 +68,7 @@ class TemporaryImageWorkflow:
         name: str,
         overwrite_state: bool = False,
         dither: int | None = None,
-        fit_mode: FitMode = "cover",
-    ) -> None:
+        display_mode: DisplayMode = "cover",
         """Save the current state and display a temporary image held in memory.
 
         `name` identifies the image on the frame, so reusing it skips the re-upload.
@@ -99,8 +97,8 @@ class TemporaryImageWorkflow:
             await self.api.show_image(bloomin8_filename, gallery, dither=dither)
             return
 
-        jpeg_data = prepare_image(image_data, int(current_state["width"]), int(current_state["height"]), fit_mode=fit_mode)
-        await self.api.upload_and_show(jpeg_data, bloomin8_filename, gallery, dither=dither)
+        prepared_image = prepare_image(image_data, int(current_state["width"]), int(current_state["height"]), display_mode=display_mode)
+        await self.api.upload_and_show(prepared_image, bloomin8_filename, gallery, dither=dither)
 
     async def restore(self, overwrite_state: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""

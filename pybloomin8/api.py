@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import mimetypes
 import time
 from types import TracebackType
 from typing import Any, Self
@@ -165,12 +166,12 @@ class Bloomin8Api:
 
     async def upload_and_show(
         self,
-        jpeg_data: bytes,
+        image_data: bytes,
         filename: str,
         gallery: str,
         dither: int | None = None,
     ) -> None:
-        """Persist a named JPEG and display it immediately."""
+        """Persist a named image and display it immediately."""
         params: dict[str, str | int] = {
             "filename": filename,
             "gallery": gallery,
@@ -182,7 +183,7 @@ class Bloomin8Api:
         response = await self._client.post(
             "/upload",
             params=params,
-            files={"image": (filename, jpeg_data, "image/jpeg")},
+            files={"image": (filename, image_data, mimetypes.guess_type(filename)[0])},
             timeout=HTTP_UPLOAD_TIMEOUT_SECONDS,
         )
         response.raise_for_status()

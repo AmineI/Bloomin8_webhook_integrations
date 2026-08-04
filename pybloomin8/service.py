@@ -1,6 +1,6 @@
 """Environment-configured entry points for embedding pybloomin8 in a service."""
 
-from .image import FitMode
+from .image import DisplayMode
 from .settings import get_settings
 from .workflow import TemporaryImageWorkflow
 
@@ -9,7 +9,7 @@ async def temp_show_image_from_bytes(
     image_data: bytes,
     name: str,
     gallery: str | None = None,
-    fit_mode: FitMode | None = None,
+    display_mode: DisplayMode | None = None,
     dither: int | None = None,
     overwrite_state: bool = False,
 ) -> None:
@@ -24,7 +24,7 @@ async def temp_show_image_from_bytes(
             name,
             overwrite_state=overwrite_state,
             dither=dither,
-            fit_mode=fit_mode or settings.fit_mode,
+            display_mode=display_mode or settings.display_mode,
         )
 
 
