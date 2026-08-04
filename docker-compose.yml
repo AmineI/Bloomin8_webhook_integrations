@@ -1,11 +1,9 @@
 services:
-  plex-webhook:
+  bloomin8-webhook:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bloomin8-plex-webhook
     restart: unless-stopped
-
     # BLE wake goes through the host's BlueZ daemon; the frame itself is reached over the LAN.
     #network_mode: host
     ports:
@@ -21,10 +19,9 @@ services:
       - .env
 
     environment:
-      #FUNCTIONS_WORKER_RUNTIME: python
-      # Keeps function keys on the container filesystem instead of Azure Storage.
+      # If using authenticated functions : the below keeps function keys on the container filesystem instead of Azure Storage.
       #AzureWebJobsSecretStorageType: files
-
+      
       BLOOMIN8_MAC: ${BLOOMIN8_MAC}
       BLOOMIN8_IP: ${BLOOMIN8_IP}
       BLOOMIN8_MANAGED_GALLERIES: ${BLOOMIN8_MANAGED_GALLERIES}
@@ -36,4 +33,3 @@ services:
       PLEX_ACTION_ONLY_IF_IDLE: ${PLEX_ACTION_ONLY_IF_IDLE:-true}
       RESTORE_DEBOUNCE_SECONDS: ${RESTORE_DEBOUNCE_SECONDS:-20}
       SHOW_DEBOUNCE_SECONDS: ${SHOW_DEBOUNCE_SECONDS:-5}
-
