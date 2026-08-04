@@ -7,11 +7,10 @@ __pycache__/
 .env
 local.settings.json
 bloomin8-state/
+BloominWake_dotnet/
+display_mode_previews/
 
 # Local Azurite emulator data.
 __blobstorage__/
 __queuestorage__/
 __azurite_db_*.json
-
-
-BloominWake_dotnet/*
