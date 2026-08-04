@@ -11,4 +11,15 @@ SHOW_RETRY_ATTEMPTS = 3
 HTTP_REQUEST_TIMEOUT_SECONDS = 10
 HTTP_UPLOAD_TIMEOUT_SECONDS = 45
 
-MANAGED_GALLERIES = ("shows", "games")
+MANAGED_GALLERIES = ("shows", "games")# deviceInfo also reports volatile values (battery, wifi...), so only the fields a restore
+# replays can decide whether two states are the same.
+RESTORE_STATE_KEYS = (
+    "image",
+    "gallery",
+    "play_type",
+    "dither",
+    "saturation",
+    "gamma",
+    "play_duration",
+    "playlist",
+)

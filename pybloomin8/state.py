@@ -6,15 +6,18 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .constants import MANAGED_GALLERIES
+from .constants import RESTORE_STATE_KEYS
 
 STATE_DIRECTORY = Path(__file__).resolve().parent.parent / "bloomin8-state"
 log = logging.getLogger(__name__)
 
 
-def is_managed_image(
-    state: dict[str, Any], managed_galleries: tuple[str, ...] = MANAGED_GALLERIES
-) -> bool:
+def restore_signature(state: dict[str, Any]) -> dict[str, Any]:
+    """Return the subset of a display state that a restore would actually reapply."""
+    return {key: state.get(key) for key in RESTORE_STATE_KEYS}
+
+
+def is_managed_image(state: dict[str, Any], managed_galleries: tuple[str, ...]) -> bool:
     """Return whether the current image belongs to a managed gallery."""
     gallery = str(state.get("gallery", "")).strip("/\\").lower()
     if gallery in managed_galleries:
@@ -27,15 +30,13 @@ def is_managed_image(
 class DisplayStateStore:
     """Persist one previous display state per frame."""
 
-    def __init__(
-        self, frame_id: str, managed_galleries: tuple[str, ...] = MANAGED_GALLERIES
-    ) -> None:
+    def __init__(self, frame_id: str, managed_galleries: tuple[str, ...]) -> None:
         safe_frame_id = re.sub(r"[^a-zA-Z0-9]+", "-", frame_id).strip("-").lower()
         self.path = STATE_DIRECTORY / f"{safe_frame_id}.json"
         self.managed_galleries = managed_galleries
 
     @property
-    def exists(self) -> bool:
+    def backup_exists(self) -> bool:
         """Return whether this frame has a pending restoration."""
         return self.path.is_file()
 
@@ -66,17 +67,22 @@ class DisplayStateStore:
         self, current_state: dict[str, Any], overwrite_state: bool
     ) -> None:
         """Backup current state if unmanaged, respecting overwrite rules."""
-        if not is_managed_image(current_state, self.managed_galleries):
-            # If the current image was not pushed by the script, we should try to keep it as a backup to restore.
-            if self.exists and not overwrite_state:
+        if is_managed_image(current_state, self.managed_galleries):
+            log.info("Current image is from a script-managed temp image gallery, no state saved")
+            return
+
+        # If the current image was not pushed by the script, we should try to keep it as a backup to restore.
+        if self.backup_exists and not overwrite_state:
+            # Re-saving a state identical to the stored one loses nothing, so it must not fail.
+            if restore_signature(self.load()) != restore_signature(current_state):
                 raise RuntimeError(
-                    "The current image is outside the shows and games folders, "
+                    f"The current image is outside the managed galleries {self.managed_galleries} "
                     "and saving it would overwrite the previous restoration state. "
-                    "Use --overwrite-state to force."
+                    "Enable --overwrite-state to force."
                 )
-            else:
-                log.info("Saved state will be overwritten with current frame state")
-                self.save(current_state)
-        else:
-            log.info("Current image is from to the script-managed temp image gallery, no state saved")
+            log.info("Current frame state already matches the saved state, keeping it")
+            return
+
+        log.info("Saved state will be overwritten with current frame state")
+        self.save(current_state)
 
