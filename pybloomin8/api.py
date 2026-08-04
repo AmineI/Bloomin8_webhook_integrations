@@ -48,9 +48,16 @@ class Bloomin8Api:
         await self._client.aclose()
 
     async def wait_until_ready(
-        self, timeout: float = STATE_READY_TIMEOUT_SECONDS
+        self,
+        timeout: float = STATE_READY_TIMEOUT_SECONDS,
+        abort_when_busy: bool = False,
     ) -> None:
-        """Wait until the frame is ready for tasks."""
+        """Wait until the frame is ready for tasks.
+
+        With `abort_when_busy`, a frame that answers with a non-ready task status raises
+        BlockingIOError instead of being waited on. Unanswered probes are still retried/waited
+        on, since the frame stays silent while it boots after a BLE wake.
+        """
         log.info("[Bloomin8 API] Waiting for device at %s", self.ip_address)
         deadline = time.monotonic() + timeout
 
@@ -66,13 +73,15 @@ class Bloomin8Api:
                     response.status_code,
                     payload if payload is not None else response.text,
                 )
-                if (
-                    response.status_code == 200
-                    and isinstance(payload, dict)
-                    and payload.get("status") in STATE_READY_STATUS_RETURN_CODES
-                ):
-                    log.info("[Bloomin8 API] Device task state is ready")
-                    return
+                if response.status_code == 200 and isinstance(payload, dict):
+                    if payload.get("status") in STATE_READY_STATUS_RETURN_CODES:
+                        log.info("[Bloomin8 API] Device task state is ready")
+                        return
+                    if abort_when_busy:
+                        raise BlockingIOError(
+                            f"Device at {self.ip_address} is busy with task status "
+                            f"{payload.get('status')}"
+                        )
             except (
                 httpx.ConnectError,
                 httpx.TimeoutException,
