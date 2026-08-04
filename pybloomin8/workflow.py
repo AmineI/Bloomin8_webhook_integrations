@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from .api import Bloomin8Api, gallery_image_path
+from .api import Bloomin8Api, gallery_image_path, safe_filename
 from .ble import wake_device
 from .constants import MANAGED_GALLERIES, STATE_READY_DELAY_SECONDS
 from .image import DisplayMode, prepare_image
@@ -82,7 +82,7 @@ class TemporaryImageWorkflow:
         log.info("  Play mode     : %s", current_state.get("play_type"))
 
         # Only act if the current image is not the same as the target image.
-        bloomin8_filename = f"{name}_{fit_mode}.jpg"
+        bloomin8_filename = f"{safe_filename(name)}_{display_mode}.png"
         target_bloomin8_path = gallery_image_path(gallery, bloomin8_filename)
 
         # Only play_type 0 holds a still image; under slideshow modes the match is transient.

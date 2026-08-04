@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import mimetypes
+import re
 import time
 from types import TracebackType
 from typing import Any, Self
@@ -19,6 +20,17 @@ from pybloomin8.constants import (
 )
 
 log = logging.getLogger(__name__)
+
+_UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def safe_filename(name: str) -> str:
+    """Return a filename the frame accepts.
+
+    The firmware returns a malformed HTTP response when an upload filename contains
+    spaces or other special characters, so they are collapsed to "_".
+    """
+    return _UNSAFE_FILENAME_CHARS.sub("_", name).strip("._-") or "image"
 
 
 def gallery_image_path(gallery: str, filename: str) -> str:
@@ -172,6 +184,10 @@ class Bloomin8Api:
         dither: int | None = None,
     ) -> None:
         """Persist a named image and display it immediately."""
+        if filename != safe_filename(filename):
+            raise ValueError(
+                f"Filename '{filename}' is unsafe for the frame. Pass safe_filename() output."
+            )
         params: dict[str, str | int] = {
             "filename": filename,
             "gallery": gallery,
