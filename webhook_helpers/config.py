@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 
 import pybloomin8
+from pybloomin8.settings import resolve_display_mode
 
 load_dotenv()
 # An invalid frame configuration must fail at startup, not mid-webhook.
@@ -14,7 +15,7 @@ pybloomin8.get_settings()
 def env_flag(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in ("true", "1", "yes")
 
-TRACK_DISPLAY_MODE = os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout")
+TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout"))
 
 PLEX_SERVER_URL = os.getenv("PLEX_SERVER_URL", "").strip().rstrip("/")
 PLEX_TOKEN = os.getenv("PLEX_TOKEN", "")

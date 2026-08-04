@@ -56,8 +56,8 @@ def extract_media_poster(metadata: dict) -> tuple[str, str]:
 
     parent, grandparent = ANCESTOR_LABELS.get(media_type, ("parent", "grandparent"))
     level_prefix_name = [(parent, "parent"), (grandparent, "grandparent")]
-    if media_type != "episode":
-        # Episode thumbs are preview frames rather than posters, so only episodes skip their own thumb.
+    # Episode thumbs are preview frames and track thumbs are linked to their album, so we don't fetch their own thumb.
+    if media_type not in ("episode", "track"):
         level_prefix_name.insert(0, (media_type, ""))
 
     for label, prefix in level_prefix_name:
