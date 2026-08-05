@@ -128,6 +128,11 @@ class TemporaryImageWorkflow:
     async def restore(self, overwrite_state: bool = False, skip_wake: bool = False) -> None:
         """Restore the previously saved display state and remove temporary data."""
         log.info("=== Restore previous state (overwrite_state=%s) ===", overwrite_state)
+        # Check if there is a save state before waking so an empty backup does not cost a BLE wake and a Wi-Fi startup.
+        if not self.state_backup.backup_exists:
+            log.info("Skipping restore: no saved state for this frame. Run `show` first.")
+            return
+
         if not skip_wake:
             await self.wake_and_connect()
         current_state = await self.api.get_device_info()
