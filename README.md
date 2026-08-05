@@ -190,3 +190,28 @@ gallery allowlist. The webhook adds:
 | `WEBHOOK_RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |
 | `WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS` | `0` | Minimum time between pre-debounce BLE wake attempts; `0` wakes for every webhook action. The final show/restore action still performs its normal wake. |
 | `TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode for music tracks, whose square album art does not fill the panel. Posters always use `cover`. |
+
+
+## Playnite scripts
+The scripts call the webhook server over HTTP. Pass your own server address with
+`-BaseUrl "http://<host>:<port>"`. Use these in Playnite script events:
+
+- Post-start script (show game cover):
+	`& "REPO_PATH\Playnite\Playnite_ShowCover.ps1" -BaseUrl "http://<host>:<port>"`
+
+- Post-game/exit script (restore backup):
+	`& "REPO_PATH\Playnite\Playnite_Restore.ps1" -BaseUrl "http://<host>:<port>"`
+
+### Parameters
+
+| Parameter | Default | Scripts | Description |
+| --- | --- | --- | --- |
+| `-BaseUrl` | *required* | both | Root URL of the webhook server, e.g. `http://192.168.1.10:57071`. |
+| `-Gallery` | `games` | `ShowCover` | Destination gallery on the frame. Must be a managed gallery. |
+| `-DisplayMode` | server default | `ShowCover` | Display mode such as `cover` or `vibrant-popout`. See [Display modes](#display-modes). |
+| `-OverwriteState` | off | both | back up and replace a user-set image even though a different backup is still waiting to be restored, losing that backup. On `restore`, put the backup back over a user-set image instead of refusing. |
+| `-TimeoutSec` | `120` | both | HTTP timeout. The server debounces and uploads before replying, so keep it generous. |
+
+The request runs on a background runspace, so neither game launch nor Playnite is blocked
+while the frame updates. Both scripts log the endpoint they call and the HTTP status and
+response body; Playnite writes those entries to `%appdata%\Playnite\playnite.log`.
