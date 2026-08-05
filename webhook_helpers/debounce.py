@@ -9,8 +9,12 @@ from collections.abc import Awaitable, Callable
 _pending: asyncio.Task | None = None
 
 
-def schedule(action: Callable[[], Awaitable[object]], delay: int) -> asyncio.Task:
-    """Run the action once the delay elapses, replacing whatever action was still pending."""
+def schedule(
+    action: Callable[[], Awaitable[object]],
+    delay: int,
+    during_delay: Callable[[], Awaitable[object]] | None = None,
+) -> asyncio.Task:
+    """Run the action after the delay, optionally running work in parallel during the wait."""
     global _pending
 
     # cancel() returns False when the action already ran, so this only logs real cancellations.
@@ -18,7 +22,7 @@ def schedule(action: Callable[[], Awaitable[object]], delay: int) -> asyncio.Tas
         logging.info("Pending action cancelled by a newer event.")
 
     logging.info("Action scheduled in %ss.", delay)
-    _pending = asyncio.create_task(_run_later(action, delay))
+    _pending = asyncio.create_task(_run_later(action, delay, during_delay))
     return _pending
 
 
@@ -39,10 +43,25 @@ async def wait_for_result(task: asyncio.Task, action: str) -> tuple[str, int]:
     return "OK", 200
 
 
-async def _run_later(action: Callable[[], Awaitable[object]], delay: int) -> object:
+async def _run_later(
+    action: Callable[[], Awaitable[object]],
+    delay: int,
+    during_delay: Callable[[], Awaitable[object]] | None = None,
+) -> object:
     global _pending
 
+    during_task: asyncio.Task | None = None
+    if during_delay is not None:
+        during_task = asyncio.create_task(during_delay())
+
     await asyncio.sleep(delay)
+
+    if during_task is not None:
+        try:
+            # Keep this work alive even if a newer event cancels the debounced action task.
+            await asyncio.shield(during_task)
+        except Exception:
+            logging.warning("During-delay action failed.", exc_info=True)
 
     # Past the window the action is committed; a later event must not interrupt it.
     _pending = None

@@ -12,17 +12,9 @@ from pybloomin8.image import DisplayMode
 from . import config, debounce, plex
 
 _last_wake_started_at: float | None = None
-WARM_WAKE_BEFORE_RESTORE_DEBOUNCE = config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS > 5
 
 
-def _log_ble_wake_result(task: asyncio.Task[None]) -> None:
-    try:
-        task.result()
-    except Exception:
-        logging.warning("Pre-debounce BLE wake failed.", exc_info=True)
-
-
-def _schedule_ble_wake() -> None:
+async def _ble_prewake() -> None:
     global _last_wake_started_at
 
     now = time.monotonic()
@@ -32,8 +24,7 @@ def _schedule_ble_wake() -> None:
 
     _last_wake_started_at = now
     frame_settings = pybloomin8.get_settings()
-    wake_task = asyncio.create_task(wake_device(frame_settings.mac))
-    wake_task.add_done_callback(_log_ble_wake_result)
+    await wake_device(frame_settings.mac)
 
 
 async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode) -> bool:
@@ -58,11 +49,10 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        if WARM_WAKE_BEFORE_RESTORE_DEBOUNCE:
-            _schedule_ble_wake()
         restore_task = debounce.schedule(
-            lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE, skip_wake=WARM_WAKE_BEFORE_RESTORE_DEBOUNCE),
-            config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS, 
+            lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE, skip_wake=True),
+            config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,
+            during_delay=_ble_prewake,
         )
         return await debounce.wait_for_result(restore_task, "Restore")
     else:
@@ -80,7 +70,6 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
             logging.warning("WEBHOOK_PLEX_SERVER_URL is not configured; frame left unchanged.")
             return "WEBHOOK_PLEX_SERVER_URL is not configured.", 500
 
-        _schedule_ble_wake()
         show_task = debounce.schedule(
             lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode),
             config.WEBHOOK_SHOW_DEBOUNCE_SECONDS,
@@ -91,10 +80,10 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
 async def handle_restore(overwrite_state: bool) -> tuple[str, int]:
     logging.info("Restore requested over HTTP (overwrite_state=%s).", overwrite_state)
 
-    _schedule_ble_wake()
     restore_task = debounce.schedule(
-        lambda: pybloomin8.restore(overwrite_state),
+        lambda: pybloomin8.restore(overwrite_state, skip_wake=True),
         config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,
+        during_delay=_ble_prewake,
     )
     return await debounce.wait_for_result(restore_task, "Restore")
 
@@ -123,7 +112,6 @@ async def handle_show_image(
     except ValueError as error:
         return str(error), 400
 
-    _schedule_ble_wake()
     show_task = debounce.schedule(
         lambda: pybloomin8.temp_show_image_from_bytes(
             image_data,
