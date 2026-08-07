@@ -60,6 +60,17 @@ class Bloomin8Api:
         """Release the underlying HTTP connection pool."""
         await self._client.aclose()
 
+    async def _get_state(self, timeout: float) -> httpx.Response | None:
+        """Return the state response, or None when the frame is unreachable."""
+        try:
+            return await self._client.get("/state", timeout=timeout)
+        except (
+            httpx.ConnectError,
+            httpx.TimeoutException,
+            httpx.RemoteProtocolError,
+        ):
+            return None
+
     async def wait_until_ready(
         self,
         timeout: float = STATE_READY_TIMEOUT_SECONDS,
@@ -75,8 +86,8 @@ class Bloomin8Api:
         deadline = time.monotonic() + timeout
 
         while time.monotonic() < deadline:
-            try:
-                response = await self._client.get("/state", timeout=3.0)
+            response = await self._get_state(timeout=3.0)
+            if response is not None:
                 try:
                     payload = response.json()
                 except ValueError:
@@ -95,17 +106,17 @@ class Bloomin8Api:
                             f"Device at {self.ip_address} is busy with task status "
                             f"{payload.get('status')}"
                         )
-            except (
-                httpx.ConnectError,
-                httpx.TimeoutException,
-                httpx.RemoteProtocolError,
-            ):
-                pass
             await asyncio.sleep(STATE_READY_DELAY_SECONDS)
 
         raise RuntimeError(
             f"Device at {self.ip_address} did not become ready within {timeout}s"
         )
+
+
+    async def is_awake(self, timeout: float = 3.0) -> bool:
+        """Return whether the frame already answers over Wi-Fi."""
+        response = await self._get_state(timeout)
+        return response is not None and response.status_code == 200
 
     async def _post_show(
         self, payload: dict[str, Any], attempts: int = SHOW_RETRY_ATTEMPTS

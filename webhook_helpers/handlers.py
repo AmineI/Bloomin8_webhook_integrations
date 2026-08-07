@@ -6,6 +6,7 @@ import time
 
 import pybloomin8
 from pybloomin8 import settings
+from pybloomin8.api import Bloomin8Api
 from pybloomin8.ble import wake_device
 from pybloomin8.image import DisplayMode
 
@@ -22,8 +23,13 @@ async def _ble_prewake() -> None:
         logging.info("Skipping pre-debounce BLE wake: already started within %ss.", config.WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS)
         return
 
-    _last_wake_started_at = now
     frame_settings = pybloomin8.get_settings()
+    async with Bloomin8Api(frame_settings.ip) as api:
+        if await api.is_awake():
+            logging.info("Skipping prewake BLE wake: frame is already awake.")
+            return
+
+    _last_wake_started_at = now
     await wake_device(frame_settings.mac)
 
 

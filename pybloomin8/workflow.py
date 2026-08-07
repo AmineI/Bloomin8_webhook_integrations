@@ -33,7 +33,20 @@ class TemporaryImageWorkflow:
 
     async def wake_and_connect(self, abort_when_busy: bool = False) -> None:
         """Wake the frame over BLE and allow Wi-Fi startup to begin."""
-        await wake_device(self.mac_address)
+        # An already-awake frame drops BLE GATT connections, so waking it again always fails.
+        if await self.api.is_awake():
+            log.info("[BLE] Device already awake — skipping wake pulse")
+            await self.api.wait_until_ready(abort_when_busy=abort_when_busy)
+            return
+
+        try:
+            await wake_device(self.mac_address)
+        except Exception:
+            # The frame may have come up on its own between the probe and the BLE attempt.
+            if not await self.api.is_awake():
+                raise
+            log.warning("[BLE] Wake pulse failed but device is reachable — continuing")
+
         try:
             await self.api.wait_until_ready(abort_when_busy=abort_when_busy)
         except RuntimeError:
