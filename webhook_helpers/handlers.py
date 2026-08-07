@@ -27,14 +27,14 @@ async def _ble_prewake() -> None:
     await wake_device(frame_settings.mac)
 
 
-async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode) -> bool:
+async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode, gallery: str) -> bool:
     """Download the poster from Plex and display it, unless the frame is busy."""
     logging.info("Downloading poster %s: %s", poster_filename, poster_url.split("?")[0])
     poster_data = await plex.download_poster(poster_url)
     return await pybloomin8.temp_show_image_from_bytes(
         poster_data,
         poster_filename,
-        gallery=config.BLOOMIN8_MEDIA_POSTER_GALLERY,
+        gallery=gallery,
         display_mode=display_mode,
         overwrite_state=config.WEBHOOK_DEFAULT_OVERWRITE_STATE,
         only_if_idle=config.WEBHOOK_ACTION_ONLY_IF_IDLE,
@@ -63,7 +63,13 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
             logging.warning("%s; frame left unchanged.", error)
             return str(error), 404
 
-        poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE if metadata.get("type") == "track" else "cover"
+    
+        if metadata.get("type") == "track":
+            poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE
+            gallery = config.BLOOMIN8_MUSIC_ART_GALLERY
+        else:
+            poster_display_mode = "cover"
+            gallery = config.BLOOMIN8_MEDIA_POSTER_GALLERY
 
         poster_full_url = plex.build_thumb_url(poster_plex_partial_path)
         if not poster_full_url:
@@ -71,7 +77,7 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
             return "WEBHOOK_PLEX_SERVER_URL is not configured.", 500
 
         show_task = debounce.schedule(
-            lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode),
+            lambda: show_plex_poster(poster_full_url, poster_filename, poster_display_mode, gallery),
             config.WEBHOOK_SHOW_DEBOUNCE_SECONDS,
         )
         return await debounce.wait_for_result(show_task, "Display")
