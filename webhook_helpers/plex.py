@@ -67,10 +67,10 @@ def extract_media_poster(metadata: dict) -> tuple[str, str]:
 
     for label, prefix in level_prefix_name:
         thumb_key, id_key = (f"{prefix}Thumb", f"{prefix}RatingKey") if prefix else ("thumb", "ratingKey")
-        thumb = metadata.get(thumb_key)
-        if thumb:
+        thumb_plex_partial_path = metadata.get(thumb_key)
+        if thumb_plex_partial_path:
             logging.info("Poster from %s: title=%s", label, metadata.get("title"))
-            return thumb, f"{label}_{metadata.get(id_key)}"
+            return thumb_plex_partial_path, f"{label}_{metadata.get(id_key)}"
 
     raise LookupError(f"No poster found for media_type={media_type}")
 
