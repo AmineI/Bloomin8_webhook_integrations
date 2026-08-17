@@ -183,8 +183,9 @@ gallery allowlist. The webhook adds:
 | `WEBHOOK_PLEX_TOKEN` | — | Plex [authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). |
 | `WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where `Account.owner` is false. |
 | `WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where `Player.local` is false. |
-| `WEBHOOK_SKIP_TRACKS` | `false` | Ignore track playback events. |
-| `WEBHOOK_DEFAULT_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image it did not set. |
+| `WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES` | `movie,episode` | Comma-separated Plex media types to process, such as `movie`, `episode`, and `track`. |
+| `WEBHOOK_LISTEN_FOR_PLEX_STOP` | `true` | Restore the previous image after a `media.stop` event. When false, stop events are ignored, and play events always replace the current image, even if it was manually set through the Bloomin8 app for example. |
+| `WEBHOOK_DEFAULT_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image set manually that is not the backed up image. This would replace the backup image and state saved for the "restore" action. |
 | `WEBHOOK_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
 | `WEBHOOK_SHOW_DEBOUNCE_SECONDS` | `5` | Wait before uploading, so skipping between items replaces the pending image instead of sending one slow upload per event. |
 | `WEBHOOK_RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |

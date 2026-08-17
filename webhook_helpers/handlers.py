@@ -19,7 +19,10 @@ async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: 
         poster_filename,
         gallery=gallery,
         display_mode=display_mode,
-        overwrite_state=config.WEBHOOK_DEFAULT_OVERWRITE_STATE,
+        overwrite_state=(
+            config.WEBHOOK_DEFAULT_OVERWRITE_STATE
+            or not config.WEBHOOK_LISTEN_FOR_PLEX_STOP
+        ),
         only_if_idle=config.WEBHOOK_ACTION_ONLY_IF_IDLE,
     )
 
@@ -32,6 +35,10 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
+        if not config.WEBHOOK_LISTEN_FOR_PLEX_STOP:
+            logging.info("Skipping media.stop event: stop listening is disabled.")
+            return "OK", 200
+
         restore_task = debounce.schedule(
             lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE, skip_wake=True),
             config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,

@@ -12,7 +12,7 @@ from .config import (
     POSTER_MAX_BYTES,
     REQUIRE_LOCAL_PLAYER,
     REQUIRE_OWNER_PLAYBACK,
-    WEBHOOK_SKIP_TRACKS,
+    WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES,
 )
 
 # Filename labels used when falling back to a parent/grandparent item.
@@ -21,12 +21,13 @@ ANCESTOR_LABELS = {"episode": ("season", "show"), "track": ("album", "artist")}
 
 def should_skip_webhook(payload: dict) -> bool:
     # Each restriction is opt-in via its own env var, defaulting to enabled.
-    if REQUIRE_OWNER_PLAYBACK and not payload.get("owner"):
-        logging.info("Skipping webhook: owner-only playback restriction not met.")
-        return True
 
     if REQUIRE_LOCAL_PLAYER and not (payload.get("Player") or {}).get("local"):
         logging.info("Skipping webhook: local-player restriction not met.")
+        return True
+
+    if REQUIRE_OWNER_PLAYBACK and not payload.get("owner"):
+        logging.info("Skipping webhook: owner-only playback restriction not met.")
         return True
 
     # Only media.play and media.stop are relevant for our workflow; ignore the rest.
@@ -34,8 +35,9 @@ def should_skip_webhook(payload: dict) -> bool:
         logging.info("Skipping webhook: event '%s' is not media.play/media.stop.", payload.get("event"))
         return True
 
-    if WEBHOOK_SKIP_TRACKS and (payload.get("Metadata") or {}).get("type") == "track":
-        logging.info("Skipping webhook: track playback is disabled.")
+    media_type = (payload.get("Metadata") or {}).get("type")
+    if media_type not in WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES:
+        logging.info("Skipping webhook: media type '%s' is disabled.", media_type)
         return True
 
     return False

@@ -21,7 +21,15 @@ WEBHOOK_PLEX_SERVER_URL = os.getenv("WEBHOOK_PLEX_SERVER_URL", "").strip().rstri
 WEBHOOK_PLEX_TOKEN = os.getenv("WEBHOOK_PLEX_TOKEN", "")
 REQUIRE_OWNER_PLAYBACK = env_flag("WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY", "true")
 REQUIRE_LOCAL_PLAYER = env_flag("WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY", "true")
-WEBHOOK_SKIP_TRACKS = env_flag("WEBHOOK_SKIP_TRACKS", "false")
+WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES = tuple(
+    media_type.strip().lower()
+    for media_type in os.getenv(
+        "WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES", "movie,episode"
+    ).split(",")
+    if media_type.strip()
+)
+# Ignore media.stop events when false, leaving the temporary image displayed.
+WEBHOOK_LISTEN_FOR_PLEX_STOP = env_flag("WEBHOOK_LISTEN_FOR_PLEX_STOP", "true")
 # Lets the Plex webhook restore an image to a frame showing an image it did not put there.
 WEBHOOK_DEFAULT_OVERWRITE_STATE = env_flag("WEBHOOK_DEFAULT_OVERWRITE_STATE", "false")
 # Skips the poster instead of queuing behind whatever the frame is already doing.
