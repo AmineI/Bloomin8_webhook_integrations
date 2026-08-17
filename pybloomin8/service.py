@@ -6,6 +6,15 @@ from .settings import get_settings
 from .workflow import TemporaryImageWorkflow
 
 
+async def wake_if_needed() -> None:
+    """Wake the configured frame if needed and wait until its API is ready."""
+    settings = get_settings()
+    async with TemporaryImageWorkflow(
+        settings.mac, settings.ip, settings.managed_galleries
+    ) as workflow:
+        await workflow.wake_and_connect()
+
+
 async def temp_show_image_from_bytes(
     image_data: bytes,
     name: str,

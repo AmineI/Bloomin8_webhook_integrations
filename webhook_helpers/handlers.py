@@ -2,35 +2,12 @@
 
 import asyncio
 import logging
-import time
 
 import pybloomin8
 from pybloomin8 import settings
-from pybloomin8.api import Bloomin8Api
-from pybloomin8.ble import wake_device
 from pybloomin8.image import DisplayMode
 
 from . import config, debounce, plex
-
-_last_wake_started_at: float | None = None
-
-
-async def _ble_prewake() -> None:
-    global _last_wake_started_at
-
-    now = time.monotonic()
-    if _last_wake_started_at is not None and now - _last_wake_started_at < config.WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS:
-        logging.info("Skipping pre-debounce BLE wake: already started within %ss.", config.WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS)
-        return
-
-    frame_settings = pybloomin8.get_settings()
-    async with Bloomin8Api(frame_settings.ip) as api:
-        if await api.is_awake():
-            logging.info("Skipping prewake BLE wake: frame is already awake.")
-            return
-
-    _last_wake_started_at = now
-    await wake_device(frame_settings.mac)
 
 
 async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: DisplayMode, gallery: str) -> bool:
@@ -58,7 +35,7 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
         restore_task = debounce.schedule(
             lambda: pybloomin8.restore(config.WEBHOOK_DEFAULT_OVERWRITE_STATE, skip_wake=True),
             config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,
-            during_delay=_ble_prewake,
+            during_delay=pybloomin8.wake_if_needed,
         )
         return await debounce.wait_for_result(restore_task, "Restore")
     else:
@@ -95,7 +72,7 @@ async def handle_restore(overwrite_state: bool) -> tuple[str, int]:
     restore_task = debounce.schedule(
         lambda: pybloomin8.restore(overwrite_state, skip_wake=True),
         config.WEBHOOK_RESTORE_DEBOUNCE_SECONDS,
-        during_delay=_ble_prewake,
+        during_delay=pybloomin8.wake_if_needed,
     )
     return await debounce.wait_for_result(restore_task, "Restore")
 

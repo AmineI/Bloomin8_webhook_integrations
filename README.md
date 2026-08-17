@@ -188,7 +188,6 @@ gallery allowlist. The webhook adds:
 | `WEBHOOK_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
 | `WEBHOOK_SHOW_DEBOUNCE_SECONDS` | `5` | Wait before uploading, so skipping between items replaces the pending image instead of sending one slow upload per event. |
 | `WEBHOOK_RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring; a new play in that window cancels the restore. |
-| `WEBHOOK_BLE_WAKE_DEBOUNCE_SECONDS` | `0` | Minimum time between pre-debounce BLE wake attempts; `0` wakes for every webhook action. The final show/restore action still performs its normal wake. |
 | `TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode for music tracks, whose square album art does not fill the panel. Posters always use `cover`. |
 
 
