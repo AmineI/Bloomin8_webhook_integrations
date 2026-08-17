@@ -1,22 +1,27 @@
 services:
-  bloomin8-srv-webhook:
+  bloomin8-azfunc-webhook:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.azure-functions
     restart: unless-stopped
+    # BLE wake goes through the host's BlueZ daemon; the frame itself is reached over the LAN.
+    #network_mode: host
     ports:
-      - 7072:7072
+      - 7071:80
     volumes:
       # bleak drives the host's bluetoothd over the D-Bus system bus, not the HCI device.
       - /run/dbus:/run/dbus:ro
       # Saved frame state must outlive the container or restore has nothing to return to.
-      - ./bloomin8-state:/app/bloomin8-state
+      - ./bloomin8-state:/home/site/wwwroot/bloomin8-state
 
     # BLOOMIN8_MAC, BLOOMIN8_IP, WEBHOOK_PLEX_SERVER_URL and WEBHOOK_PLEX_TOKEN live here.
     env_file:
       - .env
 
     environment:
+      # If using authenticated functions : the below keeps function keys on the container filesystem instead of Azure Storage.
+      #AzureWebJobsSecretStorageType: files
+      
       BLOOMIN8_MAC: ${BLOOMIN8_MAC}
       BLOOMIN8_IP: ${BLOOMIN8_IP}
       BLOOMIN8_MANAGED_GALLERIES: ${BLOOMIN8_MANAGED_GALLERIES}
