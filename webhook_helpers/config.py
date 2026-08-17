@@ -15,8 +15,6 @@ pybloomin8.get_settings()
 def env_flag(name: str, default: str = "true") -> bool:
     return os.getenv(name, default).strip().lower() in ("true", "1", "yes")
 
-TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout"))
-
 WEBHOOK_PLEX_SERVER_URL = os.getenv("WEBHOOK_PLEX_SERVER_URL", "").strip().rstrip("/")
 WEBHOOK_PLEX_TOKEN = os.getenv("WEBHOOK_PLEX_TOKEN", "")
 REQUIRE_OWNER_PLAYBACK = env_flag("WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY", "true")
@@ -38,6 +36,10 @@ WEBHOOK_ACTION_ONLY_IF_IDLE = env_flag("WEBHOOK_ACTION_ONLY_IF_IDLE", "true")
 #Skipping through media would otherwise send a display & upload per event.
 WEBHOOK_RESTORE_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_RESTORE_DEBOUNCE_SECONDS", "25"))
 WEBHOOK_SHOW_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_SHOW_DEBOUNCE_SECONDS", "5"))
+
+TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout"))
+BLOOMIN8_DISPLAY_MODE = resolve_display_mode(os.getenv("BLOOMIN8_DISPLAY_MODE", "cover"))
+
 
 POSTER_DOWNLOAD_TIMEOUT_SECONDS = 20.0
 POSTER_MAX_BYTES = 16 * 1024 * 1024

@@ -58,7 +58,7 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
             poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE
             gallery = config.BLOOMIN8_MUSIC_ART_GALLERY
         else:
-            poster_display_mode = "cover"
+            poster_display_mode = config.BLOOMIN8_DISPLAY_MODE
             gallery = config.BLOOMIN8_MEDIA_POSTER_GALLERY
 
         poster_full_url = plex.build_thumb_url(poster_plex_partial_path)
