@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    paths:
+      - 'Dockerfile'
+      - '*requirements.txt'
+      - 'pybloomin8/**'
+      - 'webhook_helpers/**'
+      - 'webhook_server.py'
+      - '.github/workflows/docker-publish.yml'
 #  pull_request:
 #    branches: [main]
   workflow_dispatch:
@@ -28,7 +35,7 @@ jobs:
       - name: Log in to GHCR
       # Only login if this is the default branch or a tag, since we only want to push images in those cases.
         if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/tags/v')
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -54,6 +61,5 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
             ${{ steps.meta.outputs.labels }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
