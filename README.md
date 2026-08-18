@@ -207,14 +207,14 @@ the modes differ the most.
 | `blur-popout` | <img src="display_mode_previews/blur-popout-1765643572.jpg" width="140"> | <img src="display_mode_previews/blur-popout-1785317506.jpg" width="140"> | Floats the image over a blurred, muted enlargement of itself. |
 
 ## Playnite script
-`Playnite\Playnite_Bloomin8.ps1` calls the webhook server over HTTP. Pass your own server
+`playnite_scripts\Playnite_Bloomin8.ps1` calls the webhook server over HTTP. Pass your own server
 address with `-BaseUrl "http://<host>:<port>"` and choose -ShowCover or -Restore.
 
 - Post-start script (show game cover):
-  `& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -ShowCover -BaseUrl "http://<host>:<port>"`
+  `& "REPO_PATH\playnite_scripts\Playnite_Bloomin8.ps1" -ShowCover -BaseUrl "http://<host>:<port>"`
 
 - Post-game/exit script (restore cover displayed before the game):
-  `& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -Restore -BaseUrl "http://<host>:<port>"`
+  `& "REPO_PATH\playnite_scripts\Playnite_Bloomin8.ps1" -Restore -BaseUrl "http://<host>:<port>"`
 
 Add them in Playnite, in Main menu > Settings… > Scripts. Add the `-ShowCover` command under
 **Before game starts**, and add the `-Restore` command under **After game ends**.
