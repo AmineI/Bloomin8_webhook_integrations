@@ -17,17 +17,17 @@ def env_flag(name: str, default: str = "true") -> bool:
 
 WEBHOOK_PLEX_SERVER_URL = os.getenv("WEBHOOK_PLEX_SERVER_URL", "").strip().rstrip("/")
 WEBHOOK_PLEX_TOKEN = os.getenv("WEBHOOK_PLEX_TOKEN", "")
-REQUIRE_OWNER_PLAYBACK = env_flag("WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY", "true")
-REQUIRE_LOCAL_PLAYER = env_flag("WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY", "true")
-WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES = tuple(
+REQUIRE_OWNER_PLAYBACK = env_flag("WEBHOOK_PLEX_PROCESS_OWNER_PLAYBACK_ONLY", "true")
+REQUIRE_LOCAL_PLAYER = env_flag("WEBHOOK_PLEX_PROCESS_LOCAL_PLAYBACK_ONLY", "true")
+WEBHOOK_PLEX_PROCESS_MEDIA_TYPES = tuple(
     media_type.strip().lower()
     for media_type in os.getenv(
-        "WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES", "movie,episode"
+        "WEBHOOK_PLEX_PROCESS_MEDIA_TYPES", "movie,episode"
     ).split(",")
     if media_type.strip()
 )
 # Ignore media.stop events when false, leaving the temporary image displayed.
-WEBHOOK_LISTEN_FOR_PLEX_STOP = env_flag("WEBHOOK_LISTEN_FOR_PLEX_STOP", "true")
+WEBHOOK_PLEX_PROCESS_MEDIA_STOP = env_flag("WEBHOOK_PLEX_PROCESS_MEDIA_STOP", "true")
 # Lets the Plex webhook restore an image to a frame showing an image it did not put there.
 WEBHOOK_DEFAULT_OVERWRITE_STATE = env_flag("WEBHOOK_DEFAULT_OVERWRITE_STATE", "false")
 # Skips the poster instead of queuing behind whatever the frame is already doing.
@@ -37,8 +37,8 @@ WEBHOOK_ACTION_ONLY_IF_IDLE = env_flag("WEBHOOK_ACTION_ONLY_IF_IDLE", "true")
 WEBHOOK_RESTORE_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_RESTORE_DEBOUNCE_SECONDS", "25"))
 WEBHOOK_SHOW_DEBOUNCE_SECONDS = int(os.getenv("WEBHOOK_SHOW_DEBOUNCE_SECONDS", "5"))
 
-TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("TRACK_DISPLAY_MODE", "vibrant-popout"))
 BLOOMIN8_DISPLAY_MODE = resolve_display_mode(os.getenv("BLOOMIN8_DISPLAY_MODE", "cover"))
+WEBHOOK_TRACK_DISPLAY_MODE = resolve_display_mode(os.getenv("WEBHOOK_TRACK_DISPLAY_MODE", "vibrant-popout"))
 
 
 POSTER_DOWNLOAD_TIMEOUT_SECONDS = 20.0

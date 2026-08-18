@@ -179,15 +179,15 @@ The webhook adds:
 | --- | --- | --- |
 | `WEBHOOK_PLEX_SERVER_URL` | — | Base URL of the Plex server, used to download posters. |
 | `WEBHOOK_PLEX_TOKEN` | — | Plex [authentication token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/). |
-| `WEBHOOK_PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where the user playing is not the server owner. |
-| `WEBHOOK_PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where the device playing is not in the local plex server network. |
-| `WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES` | `movie,episode` | Comma-separated Plex media types to process, such as `movie`, `episode`, and `track`. |
-| `WEBHOOK_LISTEN_FOR_PLEX_STOP` | `true` | Restore the previous image after a `media.stop` event. When false, stop events are ignored, and play events always replace the current image, even if it was manually set through the Bloomin8 app for example. |
+| `WEBHOOK_PLEX_PROCESS_OWNER_PLAYBACK_ONLY` | `true` | Ignore events where the user playing is not the server owner. |
+| `WEBHOOK_PLEX_PROCESS_LOCAL_PLAYBACK_ONLY` | `true` | Ignore events where the device playing is not in the local plex server network. |
+| `WEBHOOK_PLEX_PROCESS_MEDIA_TYPES` | `movie,episode` | Comma-separated Plex media types to process, such as `movie`, `episode`, and `track`. |
+| `WEBHOOK_PLEX_PROCESS_MEDIA_STOP` | `true` | Restore the previous image after a `media.stop` event. When false, stop events are ignored, and play events always replace the current image, even if it was manually set through the Bloomin8 app for example. |
 | `WEBHOOK_DEFAULT_OVERWRITE_STATE` | `false` | Let the webhook take over a frame showing an image set manually that is not the backed up image. This would replace the backup image and state saved for the "restore" action. |
 | `WEBHOOK_ACTION_ONLY_IF_IDLE` | `true` | Skip the poster instead of queueing behind an in-progress update. Overrides `BLOOMIN8_ONLY_IF_IDLE` for webhook-driven displays. |
 | `WEBHOOK_SHOW_DEBOUNCE_SECONDS` | `5` | Wait after a play event before showing an image.Skipping quickly between media will replaces a pending image that was in queued in the last `WEBHOOK_SHOW_DEBOUNCE_SECONDS`. |
 | `WEBHOOK_RESTORE_DEBOUNCE_SECONDS` | `25` | Wait after a stop event before restoring the previous image. A new play in that window cancels the restore. |
-| `TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode override for music tracks, whose square album art does not fill the panel. Other media uses `BLOOMIN8_DISPLAY_MODE`. |
+| `WEBHOOK_TRACK_DISPLAY_MODE` | `vibrant-popout` | Display mode override for music tracks, whose square album art does not fill the panel. Other media uses `BLOOMIN8_DISPLAY_MODE`. |
 
 ### Display modes
 

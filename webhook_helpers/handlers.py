@@ -21,7 +21,7 @@ async def show_plex_poster(poster_url: str, poster_filename: str, display_mode: 
         display_mode=display_mode,
         overwrite_state=(
             config.WEBHOOK_DEFAULT_OVERWRITE_STATE
-            or not config.WEBHOOK_LISTEN_FOR_PLEX_STOP
+            or not config.WEBHOOK_PLEX_PROCESS_MEDIA_STOP
         ),
         only_if_idle=config.WEBHOOK_ACTION_ONLY_IF_IDLE,
     )
@@ -35,7 +35,7 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
     logging.info("Plex webhook event: %s", event_name)
 
     if event_name == "media.stop":
-        if not config.WEBHOOK_LISTEN_FOR_PLEX_STOP:
+        if not config.WEBHOOK_PLEX_PROCESS_MEDIA_STOP:
             logging.info("Skipping media.stop event: stop listening is disabled.")
             return "OK", 200
 
@@ -55,7 +55,7 @@ async def handle_plex_payload(payload: dict) -> tuple[str, int]:
 
     
         if metadata.get("type") == "track":
-            poster_display_mode: DisplayMode = config.TRACK_DISPLAY_MODE
+            poster_display_mode: DisplayMode = config.WEBHOOK_TRACK_DISPLAY_MODE
             gallery = config.BLOOMIN8_MUSIC_ART_GALLERY
         else:
             poster_display_mode = config.BLOOMIN8_DISPLAY_MODE

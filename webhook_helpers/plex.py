@@ -12,7 +12,7 @@ from .config import (
     POSTER_MAX_BYTES,
     REQUIRE_LOCAL_PLAYER,
     REQUIRE_OWNER_PLAYBACK,
-    WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES,
+    WEBHOOK_PLEX_PROCESS_MEDIA_TYPES,
 )
 
 # Filename labels used when falling back to a parent/grandparent item.
@@ -36,7 +36,7 @@ def should_skip_webhook(payload: dict) -> bool:
         return True
 
     media_type = (payload.get("Metadata") or {}).get("type")
-    if media_type not in WEBHOOK_LISTEN_FOR_PLEX_MEDIA_TYPES:
+    if media_type not in WEBHOOK_PLEX_PROCESS_MEDIA_TYPES:
         logging.info("Skipping webhook: media type '%s' is disabled.", media_type)
         return True
 
