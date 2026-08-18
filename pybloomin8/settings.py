@@ -100,7 +100,7 @@ def resolve_debug_requests(override: bool | None = None) -> bool:
     """Resolve whether HTTP client debug logs should be enabled."""
     if override is not None:
         return override
-    raw = env_value("BLOOMIN8_DEBUG_REQUESTS")
+    raw = env_value("BLOOMIN8_PYTHON_DEBUG_REQUESTS")
     if raw is None:
         return False
     return raw.strip().lower() in ("true", "1", "yes")
