@@ -194,24 +194,25 @@ gallery allowlist. The webhook adds:
 
 ## Playnite script
 `Playnite\Playnite_Bloomin8.ps1` calls the webhook server over HTTP. Pass your own server
-address with `-BaseUrl "http://<host>:<port>"` and pick the action with `-Action`:
+address with `-BaseUrl "http://<host>:<port>"` and choose -ShowCover or -Restore.
 
 - Post-start script (show game cover):
-	`& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -Action ShowCover -BaseUrl "http://<host>:<port>"`
+  `& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -ShowCover -BaseUrl "http://<host>:<port>"`
 
-- Post-game/exit script (restore backup):
-	`& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -Action Restore -BaseUrl "http://<host>:<port>"`
+- Post-game/exit script (restore cover displayed before the game):
+  `& "REPO_PATH\Playnite\Playnite_Bloomin8.ps1" -Restore -BaseUrl "http://<host>:<port>"`
 
 ### Parameters
 
 | Parameter | Default | Actions | Description |
 | --- | --- | --- | --- |
-| `-Action` | *required* | both | `ShowCover` or `Restore`. |
-| `-BaseUrl` | *required* | both | Root URL of the webhook server, e.g. `http://192.168.1.10:57071`. |
+| `-ShowCover` | *required* | `ShowCover` | Display the current game's cover. Mutually exclusive with `-Restore`. |
+| `-Restore` | *required* | `Restore` | Restore the previous display. Mutually exclusive with `-ShowCover`. |
+| `-BaseUrl` | *required* | both | Root URL of the webhook server, e.g. `http://192.168.1.10:7072`. |
 | `-Gallery` | `games` | `ShowCover` | Destination gallery on the frame. Must be a managed gallery. |
 | `-DisplayMode` | server default | `ShowCover` | Display mode such as `cover` or `vibrant-popout`. See [Display modes](#display-modes). |
 | `-OverwriteState` | off | both | back up and replace a user-set image even though a different backup is still waiting to be restored, losing that backup. On `restore`, put the backup back over a user-set image instead of refusing. |
-| `-TimeoutSec` | `120` | both | HTTP timeout. The server debounces, wake the device and uploads before replying, so keep it generous. |
+| `-HTTPTimeoutSec` | `120` | both | HTTP timeout. The server debounces, wakes the device, and uploads before replying, so keep it generous. |
 
 The request runs on a background runspace, so neither game launch nor Playnite is blocked
 while the frame updates. The script logs the endpoint it calls and the HTTP status and

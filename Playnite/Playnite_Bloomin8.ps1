@@ -1,53 +1,83 @@
+[CmdletBinding(DefaultParameterSetName = "ShowCover")]
 param(
-    [Parameter(Mandatory = $true)]
-    [ValidateSet("ShowCover", "Restore")]
-    [string]$Action,
+    [Parameter(Mandatory = $true, ParameterSetName = "ShowCover")]
+    [switch]$ShowCover,
+    [Parameter(Mandatory = $true, ParameterSetName = "Restore")]
+    [switch]$Restore,
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
-    [string]$BaseUrl,
-    [string]$Gallery = "games",
-    [string]$DisplayMode = "",
-    [int]$TimeoutSec = 120,
-    [switch]$OverwriteState
+    [string]$BaseUrl, #Webhook base URL, e.g. http://localhost:7072
+    [Parameter(ParameterSetName = "ShowCover")]
+    [string]$Gallery = "games", 
+    [Parameter(ParameterSetName = "ShowCover")]
+    [string]$DisplayMode, #See BLOOMIN8_DISPLAY_MODE
+    [switch]$OverwriteState, #See BLOOMIN8_OVERWRITE_STATE
+    [int]$HTTPTimeoutSec = 120
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+# Skips null/empty params so optional webhook flags aren't sent as blank query values.
+function Build-RequestUri {
+    param(
+        [string]$BaseUrl,
+        [string]$Path,
+        [hashtable]$Params = @{}
+    )
+
+    $trimmedUri = "$($BaseUrl.TrimEnd('/'))/$($Path.TrimStart('/'))"
+    $uriBuilder = [System.UriBuilder]::new($trimmedUri)
+    $pairs = foreach ($entry in $Params.GetEnumerator()) {
+        if ($null -ne $entry.Value -and $entry.Value -ne "") {
+            "$([System.Net.WebUtility]::UrlEncode($entry.Key))=$([System.Net.WebUtility]::UrlEncode([string]$entry.Value))"
+        }
+    }
+    $uriBuilder.Query = $pairs -join "&"
+
+    return $uriBuilder.Uri.AbsoluteUri
+}
+
 $missing = @("PlayniteApi", "Game", "__logger") | Where-Object { -not (Test-Path "variable:$_") }
 if ($missing) { throw "Missing Playnite variables: $($missing -join ', '). Run this script from a Playnite game event." }
 
+$Action = $PSCmdlet.ParameterSetName
+$overwriteStateValue = if ($OverwriteState) { "true" } else { $null }
+
 $request = @{
     Method          = "Post"
-    TimeoutSec      = $TimeoutSec
+    HTTPTimeoutSec  = $HTTPTimeoutSec
     UseBasicParsing = $true
 }
 
 if ($Action -eq "ShowCover") {
     $coverPath = if ($Game.CoverImage) { $PlayniteApi.Database.GetFullFilePath($Game.CoverImage) }
-    if ([string]::IsNullOrWhiteSpace($coverPath) -or -not (Test-Path -LiteralPath $coverPath)) {
+    if (-not $coverPath -or -not (Test-Path -LiteralPath $coverPath)) {
         $__logger.Info("[Bloomin8] No usable cover image for '$($Game.Name)', skipping.")
         return
     }
 
-    $query = @("name=$([uri]::EscapeDataString((Split-Path -Path $coverPath -Leaf)))")
-    if ($Gallery) { $query += "gallery=$([uri]::EscapeDataString($Gallery))" }
-    if ($DisplayMode) { $query += "display_mode=$([uri]::EscapeDataString($DisplayMode))" }
-    if ($OverwriteState) { $query += "overwrite_state=true" }
-
-    $request.Uri = "$($BaseUrl.TrimEnd('/'))/api/http_show_image_trigger?$($query -join '&')"
+    $queryParams = @{
+        name            = Split-Path -Path $coverPath -Leaf
+        gallery         = $Gallery
+        display_mode    = $DisplayMode
+        overwrite_state = $overwriteStateValue
+    }
+    $request.Uri = Build-RequestUri -BaseUrl $BaseUrl -Path "/api/http_show_image_trigger" -Params $queryParams
     $request.Body = [System.IO.File]::ReadAllBytes($coverPath)
     $request.ContentType = "application/octet-stream"
 }
 else {
-    $request.Uri = "$($BaseUrl.TrimEnd('/'))/api/http_restore_trigger"
-    if ($OverwriteState) { $request.Uri += "?overwrite_state=true" }
+    $queryParams = @{
+        overwrite_state = $overwriteStateValue
+    }
+    $request.Uri = Build-RequestUri -BaseUrl $BaseUrl -Path "/api/http_restore_trigger" -Params $queryParams
 }
 
 $__logger.Debug("[Bloomin8] $Action endpoint: $($request.Uri)")
 
 # Runs in its own runspace so neither the game launch nor Playnite waits for the frame.
-$worker = {
+$backgroundJob = {
     param($Request, $Logger, $ActionName)
 
     $ProgressPreference = "SilentlyContinue"
@@ -63,5 +93,5 @@ $worker = {
 }
 
 $runner = [powershell]::Create()
-[void]$runner.AddScript($worker).AddArgument($request).AddArgument($__logger).AddArgument($Action)
+[void]$runner.AddScript($backgroundJob).AddArgument($request).AddArgument($__logger).AddArgument($Action)
 [void]$runner.BeginInvoke()
