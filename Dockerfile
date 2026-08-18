@@ -1,14 +1,17 @@
-# Build from the repository root:
-#   docker build -f Dockerfile.starlette .
+# Build from the repository root: docker build .
 
-FROM python:3.14.6-slim
+FROM python:3.14.7-alpine3.24
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app
 
 WORKDIR /app
 
-RUN apt update && apt install -y bluetooth
+RUN apk update && apk add --no-cache \
+    bluez \
+    dbus \
+    udev
+
 COPY requirements.txt server-requirements.txt /tmp/
 RUN python -m pip install --no-cache-dir -r /tmp/server-requirements.txt
 

@@ -4,11 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pybloomin8"
-version = "0.2.0"
+version = "1.0.0"
 description = "Utilities for controlling a Bloomin8 e-ink frame"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 dynamic = ["dependencies"]
+
+[project.urls]
+Repository = "https://github.com/AmineI/Bloomin8_webhook_integrations"
 
 [project.scripts]
 pybloomin8 = "pybloomin8.cli:main"
