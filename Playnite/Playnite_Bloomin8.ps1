@@ -46,7 +46,7 @@ $overwriteStateValue = if ($OverwriteState) { "true" } else { $null }
 
 $request = @{
     Method          = "Post"
-    HTTPTimeoutSec  = $HTTPTimeoutSec
+    TimeoutSec      = $HTTPTimeoutSec
     UseBasicParsing = $true
 }
 
