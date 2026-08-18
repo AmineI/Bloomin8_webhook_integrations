@@ -1,0 +1,13 @@
+name: Build and push tagged Docker image
+
+# Version tags always publish, without a file path filter.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  publish:
+    uses: ./.github/workflows/docker-publish.yml
+    permissions:
+      contents: read
+      packages: write
