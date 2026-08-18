@@ -90,7 +90,7 @@ def resolve_only_if_idle(override: bool | None = None) -> bool:
 
 def resolve_eink_optimization_preset(override: str | None = None) -> eink.EinkPreset:
     """Resolve the e-ink optimization preset used before upload."""
-    preset = (override or env_value("BLOOMIN8_EINK_PRESET") or DEFAULT_EINK_PRESET).strip().lower().replace("_", "-")
+    preset = (override or env_value("BLOOMIN8_PYTHON_EINK_PRESET") or DEFAULT_EINK_PRESET).strip().lower().replace("_", "-")
     if preset not in eink.EINK_PRESETS:
         allowed = ", ".join(eink.EINK_PRESETS)
         raise ValueError(f"Unsupported e-ink preset '{preset}'. Allowed values: {allowed}")
