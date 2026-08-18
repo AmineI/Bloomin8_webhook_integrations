@@ -1,5 +1,6 @@
 services:
   bloomin8-srv-webhook:
+    image: ghcr.io/aminei/bloomin8_webhook_integrations:latest
     build:
       context: .
       dockerfile: Dockerfile

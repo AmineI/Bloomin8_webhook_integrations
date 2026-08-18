@@ -7,6 +7,7 @@ name = "pybloomin8"
 version = "0.2.0"
 description = "Utilities for controlling a Bloomin8 e-ink frame"
 requires-python = ">=3.10"
+license = { text = "MIT" }
 dynamic = ["dependencies"]
 
 [project.scripts]
