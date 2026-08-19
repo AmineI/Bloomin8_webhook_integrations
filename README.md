@@ -1,6 +1,7 @@
 
 # Bloomin8 integrations
 
+
 Control a Bloomin8 e-ink frame from the CLI, Plex playback events, Playnite events, and more through the HTTP webhook.
 
 The repository contains multiple tools:
@@ -140,19 +141,19 @@ curl -X POST "http://<host>:7072/api/http_show_image_trigger?name=cover.jpg&gall
 Every option falls back to its environment variable, so a flag is only needed to override
 `.env` for a single run.
 
-| CLI Option | Environment variable | Required/Default | Commands | Description |
-| --- | --- | --- | --- | --- |
-| `--image` | — | **required** | `show` | Path to the image file to display. |
-| `--ip` | `BLOOMIN8_IP` | **required** | all | LAN address of the frame. |
-| `--mac` | `BLOOMIN8_MAC` | **required** | `show`, `restore`, `delete-gallery` | BLE MAC address, used to wake the frame. |
-| `--gallery` | `BLOOMIN8_GALLERY` | `temp` (first managed gallery) | `show`, `delete-gallery` | Destination gallery on the frame. Must be one of the managed galleries. |
-| `--managed-galleries` | `BLOOMIN8_MANAGED_GALLERIES` | `temp,games,media,music` | `show`, `restore`, `delete-gallery` | Comma-separated allowlist of the galleries this tool owns. Anything displayed from outside it counts as a user-set image. |
-| `--display-mode` | `BLOOMIN8_DISPLAY_MODE` | `cover` | `show` | How the image is resized to the panel. See [Display modes](#display-modes). |
-| `--only-if-idle` / `--no-only-if-idle` | `BLOOMIN8_ONLY_IF_IDLE` | off | `show` | Cancel instead of queueing when the frame is already busy. |
-| `--dither` | — | frame default | `show` | `0` for Floyd–Steinberg (often better), `1` for JJN (often faster). |
-| `--overwrite-state` | — | off | `show`, `restore` | On `show`, back up and replace a user-set image even though a different backup is still waiting to be restored, losing that backup. On `restore`, put the backup back over a user-set image instead of refusing. |
-| `--eink-optimization-preset` | `BLOOMIN8_PYTHON_EINK_PRESET` | `off` | `show` | EXPERIMENTAL e-ink optimization preset applied before upload: `off` or `1` (brighter, more saturated Bloomin8 JPEG-upload tuning). It produces bad results right now but contributions are welcome. |
-| — | `BLOOMIN8_PYTHON_DEBUG_REQUESTS` | `false` | env | When `true`, enables verbose HTTP client logs (`requests`). Otherwise they are forced to warning only. |
+| CLI | ENV | Default | Description |
+| --- | --- | --- | --- |
+| `--image` | — | **required** | Path to the image file to display. |
+| `--ip` | `BLOOMIN8_IP` | **required** | LAN address of the frame. |
+| `--mac` | `BLOOMIN8_MAC` | **required** | BLE MAC address, used to wake the frame. |
+| `--gallery` | `BLOOMIN8_GALLERY` | 1st managed <br> gallery | Destination gallery on the frame. Must be one of the managed galleries. |
+| `--managed-galleries` | `BLOOMIN8_MANAGED_GALLERIES` | `temp,games,`<br>`media,music` | Comma-separated allowlist of the galleries this tool owns. Anything displayed from outside it counts as a user-set image. |
+| `--display-mode` | `BLOOMIN8_DISPLAY_MODE` | `cover` | How the image is resized to the panel. See [Display modes](#display-modes). |
+| `--only-if-idle` | `BLOOMIN8_ONLY_IF_IDLE` | off | Cancel instead of queueing when the frame is already busy. |
+| `--dither` | — | frame default | `0` for Floyd–Steinberg (often better), `1` for JJN (often faster). |
+| `--overwrite-state` | — | off | On `show`, back up and replace a user-set image even though a different backup is still waiting to be restored, losing that backup. On `restore`, put the backup back over a user-set image instead of refusing. |
+| `--eink-optimization-preset` | `BLOOMIN8_PYTHON_EINK_PRESET` | `off` | EXPERIMENTAL e-ink optimization preset applied before upload: `off` or `1` (brighter, more saturated Bloomin8 JPEG-upload tuning). It produces bad results right now but contributions are welcome. |
+| — | `BLOOMIN8_PYTHON_DEBUG_REQUESTS` | `false` | When `true`, enables verbose HTTP client logs (`requests`). Otherwise they are forced to warning only. |
 
 #### Managed galleries & overwrite state
 > **Managed galleries** are the galleries this tool uploads to. Whatever the frame shows
